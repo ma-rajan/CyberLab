@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+coverage/
+*.log
+npm-debug.log*
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-journal
+prisma/dev.db
+client/.vite/
+server/dist/
