@@ -2,11 +2,17 @@
 
 CyberLab is a local-only Mini Bug Bounty Training Platform for learning web security.
 
-## Phase 1
+## Current scope
 
-This repository currently contains the project foundation only: React/Vite, Express,
-Prisma/SQLite, Tailwind, linting, formatting, and tests. It contains no authentication,
-vulnerable labs, scanners, or external-target functionality.
+This repository includes the React/Vite and Express foundation plus secure, server-side
+session authentication. It contains no vulnerable labs, scanners, or external-target functionality.
+
+Authentication uses unique usernames and normalized unique email addresses, bcrypt password hashes,
+opaque `httpOnly` cookies, server-side SQLite sessions, a double-submit CSRF token, and rate
+limiting. The browser first requests
+`GET /api/auth/csrf`; it receives a readable CSRF cookie/token and supplies that token in
+the `X-CSRF-Token` header for state-changing authentication requests. The session cookie
+is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 
 ## Setup
 
@@ -14,7 +20,7 @@ vulnerable labs, scanners, or external-target functionality.
 npm install
 cp .env.example .env
 npm run prisma:generate
-npm run prisma:migrate -- --name init
+npx prisma migrate deploy
 npm run dev
 ```
 
