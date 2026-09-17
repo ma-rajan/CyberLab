@@ -3,6 +3,35 @@ export interface ApiUser {
   username: string;
   email: string;
 }
+
+export type LabCategory =
+  | 'WEB_SECURITY'
+  | 'AUTHENTICATION'
+  | 'ACCESS_CONTROL'
+  | 'INJECTION'
+  | 'CLIENT_SIDE_SECURITY'
+  | 'NETWORK_SECURITY'
+  | 'OTHER';
+export type LabDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+export type LabProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+export interface ApiLab {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  category: LabCategory;
+  difficulty: LabDifficulty;
+  estimatedMinutes: number;
+  points: number;
+}
+export interface ApiLabProgress {
+  id: string;
+  labId: string;
+  status: LabProgressStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  lab: ApiLab;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -58,4 +87,11 @@ export const api = {
     await authPost<undefined>('/api/auth/logout', {});
     csrfToken = null;
   },
+  labs: () => request<{ labs: ApiLab[] }>('/api/labs'),
+  lab: (slug: string) => request<{ lab: ApiLab }>(`/api/labs/${encodeURIComponent(slug)}`),
+  labProgress: () => request<{ progress: ApiLabProgress[] }>('/api/labs/progress'),
+  startLab: (slug: string) =>
+    authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/start`, {}),
+  completeLab: (slug: string) =>
+    authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),
 };
