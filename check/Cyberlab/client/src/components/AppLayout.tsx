@@ -9,6 +9,7 @@ interface AppLayoutProps {
 const links = [
   { to: '/', label: 'Home' },
   { to: '/challenges', label: 'Challenges' },
+  { to: '/labs', label: 'Labs' },
   { to: '/dashboard', label: 'Dashboard' },
 ];
 

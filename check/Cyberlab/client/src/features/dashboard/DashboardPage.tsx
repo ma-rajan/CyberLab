@@ -10,7 +10,7 @@ export function DashboardPage() {
         Signed in as <span className="text-cyber">{user?.username}</span>.
       </p>
       <p className="mt-2 text-sm text-slate-500">
-        Challenge progress will be added in a later phase.
+        Visit the Labs section to track your upcoming learning modules.
       </p>
     </section>
   );

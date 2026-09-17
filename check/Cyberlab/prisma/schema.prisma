@@ -24,6 +24,63 @@ model User {
   updatedAt    DateTime   @updatedAt
   sessions     Session[]
   auditLogs    AuditLog[]
+  labProgress  LabProgress[]
+}
+
+enum LabCategory {
+  WEB_SECURITY
+  AUTHENTICATION
+  ACCESS_CONTROL
+  INJECTION
+  CLIENT_SIDE_SECURITY
+  NETWORK_SECURITY
+  OTHER
+}
+
+enum LabDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum LabProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Lab {
+  id               String        @id @default(cuid())
+  slug             String        @unique
+  title            String
+  description      String
+  category         LabCategory
+  difficulty       LabDifficulty
+  estimatedMinutes Int
+  points           Int
+  isPublished      Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  progress         LabProgress[]
+
+  @@index([isPublished])
+  @@index([category, difficulty])
+}
+
+model LabProgress {
+  id          String            @id @default(cuid())
+  userId      String
+  labId       String
+  status      LabProgressStatus @default(NOT_STARTED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lab         Lab               @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, labId])
+  @@index([labId])
 }
 
 model Session {

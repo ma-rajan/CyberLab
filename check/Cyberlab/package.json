@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "DATABASE_URL='file:./dev.db' tsx prisma/seed.ts",
     "prisma:studio": "prisma studio"
   },
   "devDependencies": {
