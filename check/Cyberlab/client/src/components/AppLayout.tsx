@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../features/auth/useAuth';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -12,6 +13,14 @@ const links = [
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    navigate('/');
+  }
+
   return (
     <div className="min-h-screen bg-ink text-slate-100 selection:bg-cyber/30">
       <header className="border-b border-cyan-950/80 bg-ink/90 backdrop-blur">
@@ -43,12 +52,22 @@ export function AppLayout({ children }: AppLayoutProps) {
                 {link.label}
               </NavLink>
             ))}
-            <NavLink
-              to="/login"
-              className="ml-2 rounded-md border border-cyber/50 px-3 py-2 font-medium text-cyber transition hover:bg-cyber hover:text-ink"
-            >
-              Login
-            </NavLink>
+            {user ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="ml-2 rounded-md border border-cyber/50 px-3 py-2 font-medium text-cyber transition hover:bg-cyber hover:text-ink"
+              >
+                Logout
+              </button>
+            ) : (
+              <NavLink
+                to="/login"
+                className="ml-2 rounded-md border border-cyber/50 px-3 py-2 font-medium text-cyber transition hover:bg-cyber hover:text-ink"
+              >
+                Login
+              </NavLink>
+            )}
           </div>
         </nav>
       </header>
