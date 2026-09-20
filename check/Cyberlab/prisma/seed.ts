@@ -19,6 +19,9 @@ async function main() {
       estimatedMinutes: 30,
       points: 100,
       isPublished: true,
+      objective: 'Understand the core security concepts introduced by this lab.',
+      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
     {
       slug: 'xss-fundamentals',
@@ -29,6 +32,9 @@ async function main() {
       estimatedMinutes: 25,
       points: 100,
       isPublished: true,
+      objective: 'Understand safe client-side rendering practices.',
+      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
     {
       slug: 'broken-access-control',
@@ -39,6 +45,9 @@ async function main() {
       estimatedMinutes: 35,
       points: 150,
       isPublished: true,
+      objective: 'Recognize authorization boundaries and secure access checks.',
+      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
     {
       slug: 'authentication-basics',
@@ -49,6 +58,9 @@ async function main() {
       estimatedMinutes: 20,
       points: 100,
       isPublished: true,
+      objective: 'Review secure account and session management concepts.',
+      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
     {
       slug: 'idor-fundamentals',
@@ -59,6 +71,9 @@ async function main() {
       estimatedMinutes: 30,
       points: 150,
       isPublished: true,
+      objective: 'Understand how to protect user-owned resources with authorization.',
+      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
   ];
 

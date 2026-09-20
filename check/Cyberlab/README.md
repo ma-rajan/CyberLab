@@ -22,7 +22,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 1 — Project Foundation | ✅ Completed |
 | Phase 2 — Secure Authentication | ✅ Completed |
 | Phase 3 — Lab Management Foundation | ✅ Completed |
-| Phase 4 — Lab Runtime | ⏳ Planned |
+| Phase 4 — Lab Engine Infrastructure | ✅ Completed |
 | Phase 5 — Vulnerable Labs | ⏳ Planned |
 
 ## Phase 3 — Lab Management Foundation
@@ -38,6 +38,55 @@ Phase 3 adds secure platform infrastructure for future labs:
 
 Actual vulnerable labs have **not** been implemented. The listed labs are coming-soon metadata;
 there are no SQL injection, XSS, IDOR, or other vulnerable endpoints in this phase.
+
+## Phase 4 — Lab Engine Infrastructure
+
+Phase 4 adds the secure runtime boundary for future isolated labs without adding intentionally
+vulnerable behavior to the CyberLab platform. Published lab definitions now expose an objective,
+instructions, and hints. An authenticated user can start one idempotent, user-owned `LabSession`,
+retrieve that session and their per-lab progress, and submit an attempt through a server-side
+validator registry.
+
+The current validator is a safe placeholder. It accepts only the explicit `CYBERLAB_READY`
+confirmation used to exercise the engine; it does not execute submitted code, SQL, shell commands,
+or JavaScript. Points and completion timestamps are read from the server-side lab record, and a
+session can only complete after its validator returns a completed result.
+
+### Lab Engine API
+
+* `GET /api/labs` — published lab catalog.
+* `GET /api/labs/:slug` — safe published lab detail.
+* `POST /api/labs/:slug/start` — authenticated, CSRF-protected, idempotent session start.
+* `GET /api/labs/:slug/session` — the authenticated user's session only.
+* `GET /api/labs/:slug/progress` — the authenticated user's progress only.
+* `POST /api/labs/:slug/submit` — authenticated, CSRF-protected attempt validation.
+* `POST /api/labs/:slug/complete` — compatibility endpoint that only returns progress after validated completion.
+* `GET /api/labs/progress` — all progress belonging to the authenticated user.
+
+The session record stores `user`, `lab`, `startedAt`, `lastActivityAt`, `completedAt`, and an
+`ACTIVE`, `COMPLETED`, or `EXPIRED` status. One `(user, lab)` session is enforced by a database
+unique constraint. All protected operations derive identity from the existing authenticated session;
+client-supplied user IDs, points, and completion state are ignored or rejected.
+
+### Future isolated lab architecture
+
+The platform remains the secure control plane:
+
+```text
+CyberLab Platform
+├── Secure API / Frontend
+├── Lab Engine
+│   ├── Lab Runtime
+│   │   ├── Isolated SQLi Lab
+│   │   ├── Isolated XSS Lab
+│   │   ├── Isolated Auth Lab
+│   │   └── Other Labs
+│   └── Progress
+```
+
+Future lab-specific `start`, `validate`, and `complete` implementations should be registered
+behind the lab engine and run in isolated targets. Intentionally vulnerable code must never be
+added to the secure main API or shared application database.
 
 ## Setup
 

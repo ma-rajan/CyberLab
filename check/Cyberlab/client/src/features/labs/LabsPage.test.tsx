@@ -19,6 +19,8 @@ const { api } = vi.hoisted(() => ({
     lab: vi.fn(),
     labProgress: vi.fn(),
     startLab: vi.fn(),
+    labSession: vi.fn(),
+    submitLab: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -34,6 +36,13 @@ beforeEach(() => {
   api.labProgress.mockResolvedValue({ progress: [] });
   api.startLab.mockResolvedValue({
     progress: { id: 'progress-1', labId: lab.id, status: 'IN_PROGRESS', startedAt: '2026-01-01', completedAt: null, lab },
+    session: { id: 'session-1', labId: lab.id, startedAt: '2026-01-01', lastActivityAt: '2026-01-01', completedAt: null, status: 'ACTIVE', lab },
+  });
+  api.labSession.mockResolvedValue({ session: { id: 'session-1', labId: lab.id, startedAt: '2026-01-01', lastActivityAt: '2026-01-01', completedAt: null, status: 'ACTIVE', lab } });
+  api.submitLab.mockResolvedValue({
+    success: true, completed: true, message: 'Submission accepted.',
+    session: { id: 'session-1', labId: lab.id, startedAt: '2026-01-01', lastActivityAt: '2026-01-01', completedAt: '2026-01-01', status: 'COMPLETED', lab },
+    progress: { id: 'progress-1', labId: lab.id, status: 'COMPLETED', startedAt: '2026-01-01', completedAt: '2026-01-01', lab },
   });
   api.completeLab.mockResolvedValue({
     progress: { id: 'progress-1', labId: lab.id, status: 'COMPLETED', startedAt: '2026-01-01', completedAt: '2026-01-01', lab },
@@ -59,6 +68,9 @@ describe('lab pages', () => {
     expect(await screen.findByRole('heading', { name: 'SQL Injection Basics' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
     await waitFor(() => expect(api.startLab).toHaveBeenCalledWith('sql-injection-basics'));
-    expect(await screen.findByRole('button', { name: 'Complete Lab' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Submission'), { target: { value: 'CYBERLAB_READY' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('sql-injection-basics', { confirmation: 'CYBERLAB_READY' }));
+    expect(await screen.findByText('Completed — 100 points')).toBeInTheDocument();
   });
 });
