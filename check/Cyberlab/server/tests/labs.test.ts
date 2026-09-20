@@ -49,6 +49,7 @@ async function loginAgent(email: string) {
 
 beforeEach(async () => {
   authRateLimitStore.resetAll();
+  await prisma.labSession.deleteMany();
   await prisma.labProgress.deleteMany();
   await prisma.lab.deleteMany();
   await prisma.session.deleteMany();
@@ -131,17 +132,64 @@ describe('lab API', () => {
     expect(await prisma.labProgress.findUnique({ where: { userId_labId: { userId: userB.id, labId: lab.id } } })).not.toBeNull();
   });
 
-  it('completes only the current user progress and preserves another user progress', async () => {
+  it('completes only the current user session and progress', async () => {
     const lab = await createPublishedLab();
     const { agent: agentA, token: tokenA } = await authenticatedAgent('learner_a', 'a@example.test');
     const { agent: agentB, token: tokenB } = await authenticatedAgent('learner_b', 'b@example.test');
     await agentA.post('/api/labs/secure-lab/start').set('X-CSRF-Token', tokenA).send({}).expect(200);
     await agentB.post('/api/labs/secure-lab/start').set('X-CSRF-Token', tokenB).send({}).expect(200);
-    const completed = await agentA.post('/api/labs/secure-lab/complete').set('X-CSRF-Token', tokenA).send({}).expect(200);
+    const completed = await agentA
+      .post('/api/labs/secure-lab/submit')
+      .set('X-CSRF-Token', tokenA)
+      .send({ submission: { confirmation: 'CYBERLAB_READY' } })
+      .expect(200);
     expect(completed.body.data.progress.status).toBe('COMPLETED');
     expect(completed.body.data.progress.completedAt).toBeTruthy();
+    expect(completed.body.data.session.status).toBe('COMPLETED');
     const [aEntry, bEntry] = await prisma.labProgress.findMany({ where: { labId: lab.id }, orderBy: { userId: 'asc' } });
     expect([aEntry.status, bEntry.status].sort()).toEqual(['COMPLETED', 'IN_PROGRESS']);
+  });
+
+  it('creates one owned session and returns it idempotently', async () => {
+    await createPublishedLab();
+    const { agent, token } = await authenticatedAgent('learner', 'learner@example.test');
+    const first = await agent.post('/api/labs/secure-lab/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const second = await agent.post('/api/labs/secure-lab/start').set('X-CSRF-Token', token).send({}).expect(200);
+    expect(first.body.data.session.id).toBe(second.body.data.session.id);
+    expect(await prisma.labSession.count()).toBe(1);
+    await agent.get('/api/labs/secure-lab/session').expect(200);
+  });
+
+  it('does not expose another user session or accept client points', async () => {
+    await createPublishedLab();
+    const { agent: agentA, token: tokenA } = await authenticatedAgent('learner_a', 'a@example.test');
+    const { agent: agentB } = await authenticatedAgent('learner_b', 'b@example.test');
+    await agentA.post('/api/labs/secure-lab/start').set('X-CSRF-Token', tokenA).send({}).expect(200);
+    await agentB.get('/api/labs/secure-lab/session').expect(404);
+    const response = await agentA.post('/api/labs/secure-lab/submit').set('X-CSRF-Token', tokenA).send({ submission: { confirmation: 'wrong' }, points: 9999 });
+    expect(response.status).toBe(400);
+    expect(await prisma.labProgress.count({ where: { status: 'COMPLETED' } })).toBe(0);
+  });
+
+  it('rejects invalid submissions and accepts only the safe placeholder validator', async () => {
+    await createPublishedLab();
+    const { agent, token } = await authenticatedAgent('learner', 'learner@example.test');
+    await agent.post('/api/labs/secure-lab/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const invalid = await agent.post('/api/labs/secure-lab/submit').set('X-CSRF-Token', token).send({ submission: { confirmation: 'wrong' } }).expect(200);
+    expect(invalid.body.data.completed).toBe(false);
+    expect(await prisma.labProgress.findFirstOrThrow()).toMatchObject({ status: 'IN_PROGRESS' });
+    const valid = await agent.post('/api/labs/secure-lab/submit').set('X-CSRF-Token', token).send({ submission: { confirmation: 'CYBERLAB_READY' } }).expect(200);
+    expect(valid.body.data.completed).toBe(true);
+    expect(await prisma.labProgress.findFirstOrThrow()).toMatchObject({ status: 'COMPLETED' });
+  });
+
+  it('does not allow direct completion before validation', async () => {
+    await createPublishedLab();
+    const { agent, token } = await authenticatedAgent('learner', 'learner@example.test');
+    await agent.post('/api/labs/secure-lab/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const response = await agent.post('/api/labs/secure-lab/complete').set('X-CSRF-Token', token).send({});
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('LAB_NOT_VALIDATED');
   });
 
   it('enforces one progress record per user and lab with working relations', async () => {

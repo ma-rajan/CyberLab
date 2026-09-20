@@ -14,6 +14,7 @@ export type LabCategory =
   | 'OTHER';
 export type LabDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 export type LabProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+export type LabSessionStatus = 'ACTIVE' | 'COMPLETED' | 'EXPIRED';
 export interface ApiLab {
   id: string;
   slug: string;
@@ -23,6 +24,18 @@ export interface ApiLab {
   difficulty: LabDifficulty;
   estimatedMinutes: number;
   points: number;
+  objective: string;
+  instructions: string;
+  hints: string[];
+}
+export interface ApiLabSession {
+  id: string;
+  labId: string;
+  startedAt: string;
+  lastActivityAt: string;
+  completedAt: string | null;
+  status: LabSessionStatus;
+  lab: ApiLab;
 }
 export interface ApiLabProgress {
   id: string;
@@ -69,7 +82,7 @@ async function getCsrfToken() {
   if (!csrfToken) csrfToken = (await request<{ csrfToken: string }>('/api/auth/csrf')).csrfToken;
   return csrfToken;
 }
-async function authPost<T>(path: string, body: Record<string, string>): Promise<T> {
+async function authPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const token = await getCsrfToken();
   return request<T>(path, {
     method: 'POST',
@@ -91,7 +104,12 @@ export const api = {
   lab: (slug: string) => request<{ lab: ApiLab }>(`/api/labs/${encodeURIComponent(slug)}`),
   labProgress: () => request<{ progress: ApiLabProgress[] }>('/api/labs/progress'),
   startLab: (slug: string) =>
-    authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/start`, {}),
+    authPost<{ progress: ApiLabProgress; session: ApiLabSession }>(`/api/labs/${encodeURIComponent(slug)}/start`, {}),
+  labSession: (slug: string) => request<{ session: ApiLabSession }>(`/api/labs/${encodeURIComponent(slug)}/session`),
+  submitLab: (slug: string, submission: Record<string, unknown>) =>
+    authPost<{ success: boolean; completed: boolean; message: string; session: ApiLabSession; progress?: ApiLabProgress }>(
+      `/api/labs/${encodeURIComponent(slug)}/submit`, { submission },
+    ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),
 };
