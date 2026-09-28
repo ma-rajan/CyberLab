@@ -56,6 +56,7 @@ const definitions = new Map<string, LabDefinition>();
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
+  createFlagDefinition('IDOR_PROFILE_ACCESS', 'Correct completion value. Profile Access is complete.'),
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {
