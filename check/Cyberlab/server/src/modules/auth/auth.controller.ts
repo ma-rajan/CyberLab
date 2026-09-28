@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import type { ZodType } from 'zod';
 import { AppError } from './auth.errors.js';
 import { authService } from './auth.service.js';
 import { loginSchema, registerSchema } from './auth.validators.js';
@@ -6,12 +7,16 @@ import { setSessionCookie, clearSessionCookie } from '../../utils/session-cookie
 import { SESSION_COOKIE_NAME } from '../../utils/session-cookie.js';
 
 function parseBody<T>(
-  schema: { safeParse: (value: unknown) => { success: boolean; data?: T } },
+  schema: ZodType<T>,
   body: unknown,
 ): T {
   const result = schema.safeParse(body);
-  if (!result.success || !result.data) {
-    throw new AppError(400, 'VALIDATION_ERROR', 'Please check the submitted fields.');
+  if (!result.success) {
+    throw new AppError(
+      400,
+      'VALIDATION_ERROR',
+      result.error.issues[0]?.message ?? 'Please check the submitted fields.',
+    );
   }
   return result.data;
 }
