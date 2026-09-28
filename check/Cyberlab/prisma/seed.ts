@@ -7,6 +7,7 @@ async function main() {
   const productSearchFlagHash = await bcrypt.hash('CYBERLAB{product_search_tautology}', 12);
   const feedbackSearchFlagHash = await bcrypt.hash('XSS_PREVIEW_CONFIRMED', 12);
   const profileAccessFlagHash = await bcrypt.hash('IDOR_PROFILE_ACCESS_CONFIRMED', 12);
+  const authenticationBypassFlagHash = await bcrypt.hash('AUTH_BYPASS_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -85,6 +86,27 @@ async function main() {
       instructions:
         'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
       hints: JSON.stringify(['The interactive target will be added in a future phase.']),
+    },
+    {
+      slug: 'authentication-bypass-basics',
+      title: 'Authentication Bypass Basics',
+      description: 'Investigate a simple training login mechanism with an authentication weakness.',
+      category: 'AUTHENTICATION' as const,
+      difficulty: 'BEGINNER' as const,
+      estimatedMinutes: 20,
+      points: 100,
+      isPublished: true,
+      objective: 'Recognize how flawed authentication logic can accept an attempt without both expected values.',
+      instructions: 'Start the lab and use the synthetic training login. Compare ordinary rejected attempts with attempts that use the known training username and an unexpected password. This target never affects your CyberLab account or session. Submit the completion value only after demonstrating the training weakness.',
+      target: 'Training Login — POST /api/labs/authentication-bypass-basics/target/login',
+      challengeType: 'AUTHENTICATION_BYPASS',
+      validatorType: 'FLAG',
+      flagHash: authenticationBypassFlagHash,
+      hints: JSON.stringify([
+        'Look carefully at what the application considers a successful login.',
+        'Test how the target behaves when expected authentication values are missing or unexpected.',
+        'The authentication decision contains a logic flaw. Think about what condition actually needs to evaluate as true.',
+      ]),
     },
     {
       slug: 'idor-fundamentals',

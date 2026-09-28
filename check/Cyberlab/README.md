@@ -26,6 +26,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 5 — Challenge Content Engine  | ✅ Completed |
 | Phase 6 — Isolated XSS Challenge    | ✅ Completed |
 | Phase 7 — Isolated IDOR Challenge   | ✅ Completed |
+| Phase 8 — Isolated Authentication Challenge | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -38,8 +39,8 @@ Phase 3 adds secure platform infrastructure for future labs:
   completing, and viewing only the current user's progress.
 - A protected Labs dashboard, filtering, lab details, and server-authoritative progress UI.
 
-The catalog retains the existing placeholder labs and now includes SQL Injection, XSS, and IDOR
-challenges. Authentication and information-disclosure categories remain future-ready metadata.
+The catalog retains the existing placeholder labs and now includes SQL Injection, XSS, IDOR, and
+authentication challenges. Information-disclosure remains future-ready metadata.
 
 ## Phase 4 — Lab Engine Infrastructure
 
@@ -98,7 +99,7 @@ Secure CyberLab Platform
 │   │   ├── Product Search SQLi target (fixed data only)
 │   │   ├── Feedback Search XSS target (sandboxed document)
 │   │   ├── Profile Access IDOR target (fixed synthetic profiles)
-│   │   ├── Isolated Auth Lab
+│   │   ├── Training Login authentication target (fixed synthetic account)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -138,6 +139,21 @@ session, progress, and submission endpoints remain unchanged and protected.
 The target returns a training-only completion value after the intended synthetic-profile interaction.
 The existing bcrypt-backed server validator, rather than the browser, validates it and records the
 existing session/progress completion state.
+
+## Phase 8 — Isolated Authentication Challenge
+
+The seed command adds **Authentication Bypass Basics** at
+`POST /api/labs/authentication-bypass-basics/target/login`. The endpoint requires both the normal
+CyberLab authenticated user and that user’s existing lab session, including the standard CSRF check.
+
+Training Login is a deliberately flawed, fixed in-memory authentication check. It uses no Prisma
+user records, platform passwords, cookies, authentication sessions, or external services. Its
+response is target-only synthetic state; it cannot sign a learner into CyberLab or alter the platform
+session. The challenge produces a non-secret completion value only after the intended synthetic
+bypass, and the existing bcrypt-backed server validator records completion.
+
+Hints guide learners from observing the login decision, to testing unexpected values, to reasoning
+about the flawed condition without disclosing the training flag in metadata or documentation.
 
 ## Setup
 

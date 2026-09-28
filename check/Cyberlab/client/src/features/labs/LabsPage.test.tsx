@@ -29,6 +29,7 @@ const { api } = vi.hoisted(() => ({
     searchProducts: vi.fn(),
     searchFeedback: vi.fn(),
     trainingProfile: vi.fn(),
+    trainingLogin: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -113,6 +114,7 @@ beforeEach(() => {
     profile: { id: 102, displayName: 'Jordan Training', role: 'Support coordinator', bio: 'Synthetic restricted profile.', owner: 'OTHER_TRAINING_USER' },
     completionToken: 'IDOR_PROFILE_ACCESS_CONFIRMED',
   });
+  api.trainingLogin.mockResolvedValue({ authenticated: true, role: 'learner', message: 'Synthetic training target accepted the login attempt.', completionToken: 'AUTH_BYPASS_CONFIRMED' });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -201,5 +203,21 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'IDOR_PROFILE_ACCESS_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('idor-fundamentals', { flag: 'IDOR_PROFILE_ACCESS_CONFIRMED' }));
+  });
+
+  it('renders the synthetic authentication target and submits its completion value', async () => {
+    const authLab = { ...lab, slug: 'authentication-bypass-basics', title: 'Authentication Bypass Basics', category: 'AUTHENTICATION' as const, challengeType: 'AUTHENTICATION_BYPASS' };
+    api.lab.mockResolvedValue({ lab: authLab });
+    render(<MemoryRouter initialEntries={['/labs/authentication-bypass-basics']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Authentication Bypass Basics' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.change(await screen.findByLabelText('Training username'), { target: { value: 'trainee' } });
+    fireEvent.change(screen.getByLabelText('Training password'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Log In to Training Target' }));
+    await waitFor(() => expect(api.trainingLogin).toHaveBeenCalledWith('authentication-bypass-basics', { username: 'trainee', password: 'wrong' }));
+    expect(await screen.findByText(/AUTH_BYPASS_CONFIRMED/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'AUTH_BYPASS_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('authentication-bypass-basics', { flag: 'AUTH_BYPASS_CONFIRMED' }));
   });
 });
