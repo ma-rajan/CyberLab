@@ -27,6 +27,8 @@ export interface ApiLab {
   objective: string;
   instructions: string;
   hints: string[];
+  target: string;
+  challengeType: string;
 }
 export interface ApiLabSession {
   id: string;
@@ -44,6 +46,12 @@ export interface ApiLabProgress {
   startedAt: string | null;
   completedAt: string | null;
   lab: ApiLab;
+}
+export interface ApiProductSearchResult {
+  name: string;
+  description: string;
+  price: string;
+  internal?: boolean;
 }
 interface ApiEnvelope<T> {
   data: T;
@@ -92,8 +100,12 @@ async function authPost<T>(path: string, body: Record<string, unknown>): Promise
 }
 export const api = {
   me: () => request<{ user: ApiUser }>('/api/auth/me'),
-  register: (input: { username: string; email: string; password: string; confirmPassword: string }) =>
-    authPost<{ user: ApiUser }>('/api/auth/register', input),
+  register: (input: {
+    username: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+  }) => authPost<{ user: ApiUser }>('/api/auth/register', input),
   login: (input: { email: string; password: string }) =>
     authPost<{ user: ApiUser }>('/api/auth/login', input),
   logout: async () => {
@@ -104,11 +116,23 @@ export const api = {
   lab: (slug: string) => request<{ lab: ApiLab }>(`/api/labs/${encodeURIComponent(slug)}`),
   labProgress: () => request<{ progress: ApiLabProgress[] }>('/api/labs/progress'),
   startLab: (slug: string) =>
-    authPost<{ progress: ApiLabProgress; session: ApiLabSession }>(`/api/labs/${encodeURIComponent(slug)}/start`, {}),
-  labSession: (slug: string) => request<{ session: ApiLabSession }>(`/api/labs/${encodeURIComponent(slug)}/session`),
+    authPost<{ progress: ApiLabProgress; session: ApiLabSession }>(
+      `/api/labs/${encodeURIComponent(slug)}/start`,
+      {},
+    ),
+  labSession: (slug: string) =>
+    request<{ session: ApiLabSession }>(`/api/labs/${encodeURIComponent(slug)}/session`),
   submitLab: (slug: string, submission: Record<string, unknown>) =>
-    authPost<{ success: boolean; completed: boolean; message: string; session: ApiLabSession; progress?: ApiLabProgress }>(
-      `/api/labs/${encodeURIComponent(slug)}/submit`, { submission },
+    authPost<{
+      success: boolean;
+      completed: boolean;
+      message: string;
+      session: ApiLabSession;
+      progress?: ApiLabProgress;
+    }>(`/api/labs/${encodeURIComponent(slug)}/submit`, { submission }),
+  searchProducts: (slug: string, search: string) =>
+    request<{ queryPreview: string; results: ApiProductSearchResult[] }>(
+      `/api/labs/${encodeURIComponent(slug)}/target/products?search=${encodeURIComponent(search)}`,
     ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),

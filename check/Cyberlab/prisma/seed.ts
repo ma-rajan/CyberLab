@@ -1,8 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  const productSearchFlagHash = await bcrypt.hash('CYBERLAB{product_search_tautology}', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -13,15 +15,25 @@ async function main() {
     {
       slug: 'sql-injection-basics',
       title: 'SQL Injection Basics',
-      description: 'A future introductory lab covering secure database query handling.',
+      description: 'Investigate a product search page that handles its search input unsafely.',
       category: 'INJECTION' as const,
       difficulty: 'BEGINNER' as const,
       estimatedMinutes: 30,
       points: 100,
       isPublished: true,
-      objective: 'Understand the core security concepts introduced by this lab.',
-      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
-      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
+      objective:
+        'Identify how unsafe SQL query construction can expose data that should remain hidden.',
+      instructions:
+        'Start the lab, then use the Product Search target. Search normally first and observe the request preview. Find a way to change the query condition so the internal product note is returned. Submit the flag from that note to complete the lab.',
+      target: 'Product Search — GET /api/labs/sql-injection-basics/target/products?search=<term>',
+      challengeType: 'SQL_INJECTION_PRODUCT_SEARCH',
+      validatorType: 'FLAG',
+      flagHash: productSearchFlagHash,
+      hints: JSON.stringify([
+        'Look closely at how the search input affects the query preview.',
+        'Think about what happens when user-controlled text closes a quoted SQL value.',
+        'Test whether a quoted OR condition can make the search condition always true.',
+      ]),
     },
     {
       slug: 'xss-fundamentals',
@@ -33,7 +45,8 @@ async function main() {
       points: 100,
       isPublished: true,
       objective: 'Understand safe client-side rendering practices.',
-      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      instructions:
+        'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
       hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
     {
@@ -46,7 +59,8 @@ async function main() {
       points: 150,
       isPublished: true,
       objective: 'Recognize authorization boundaries and secure access checks.',
-      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      instructions:
+        'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
       hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
     {
@@ -59,7 +73,8 @@ async function main() {
       points: 100,
       isPublished: true,
       objective: 'Review secure account and session management concepts.',
-      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      instructions:
+        'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
       hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
     {
@@ -72,7 +87,8 @@ async function main() {
       points: 150,
       isPublished: true,
       objective: 'Understand how to protect user-owned resources with authorization.',
-      instructions: 'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
+      instructions:
+        'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
       hints: JSON.stringify(['The interactive target will be added in a future phase.']),
     },
   ];

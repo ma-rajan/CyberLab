@@ -1,3 +1,5 @@
+import bcrypt from 'bcryptjs';
+
 export interface LabValidationResult {
   success: boolean;
   completed: boolean;
@@ -5,14 +7,21 @@ export interface LabValidationResult {
 }
 
 export interface LabDefinition {
-  slug: string;
-  validate: (submission: Record<string, unknown>) => LabValidationResult | Promise<LabValidationResult>;
+  challengeType: string;
+  validate: (
+    submission: Record<string, unknown>,
+    context: LabValidationContext,
+  ) => LabValidationResult | Promise<LabValidationResult>;
 }
 
-// Future labs register isolated validators here. Input remains data and is never evaluated as code,
-// SQL, a shell command, or JavaScript by the platform.
+export interface LabValidationContext {
+  validatorType: string;
+  flagHash: string | null;
+}
+
+// Validators receive data only and never evaluate it as code, SQL, a shell command, or JavaScript.
 const placeholderDefinition: LabDefinition = {
-  slug: '*',
+  challengeType: 'PLACEHOLDER',
   validate: (submission) => {
     const accepted = submission.confirmation === 'CYBERLAB_READY';
     return {
@@ -25,12 +34,31 @@ const placeholderDefinition: LabDefinition = {
   },
 };
 
+const flagDefinition: LabDefinition = {
+  challengeType: 'SQL_INJECTION_PRODUCT_SEARCH',
+  validate: async (submission, context) => {
+    const flag = typeof submission.flag === 'string' ? submission.flag : '';
+    const accepted =
+      context.validatorType === 'FLAG' &&
+      Boolean(context.flagHash) &&
+      (await bcrypt.compare(flag, context.flagHash!));
+    return {
+      success: accepted,
+      completed: accepted,
+      message: accepted
+        ? 'Correct flag. Product Search is complete.'
+        : 'That flag is not correct. Keep investigating the isolated target.',
+    };
+  },
+};
+
 const definitions = new Map<string, LabDefinition>();
+definitions.set(flagDefinition.challengeType, flagDefinition);
 
 export function registerLabDefinition(definition: LabDefinition) {
-  definitions.set(definition.slug, definition);
+  definitions.set(definition.challengeType, definition);
 }
 
-export function getLabDefinition(slug: string) {
-  return definitions.get(slug) ?? placeholderDefinition;
+export function getLabDefinition(challengeType: string) {
+  return definitions.get(challengeType) ?? placeholderDefinition;
 }

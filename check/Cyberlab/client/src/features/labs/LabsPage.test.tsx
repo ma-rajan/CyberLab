@@ -11,6 +11,11 @@ const lab = {
   difficulty: 'BEGINNER' as const,
   estimatedMinutes: 30,
   points: 100,
+  objective: 'Understand unsafe query construction.',
+  instructions: 'Use the Product Search target.',
+  target: 'Product Search',
+  challengeType: 'SQL_INJECTION_PRODUCT_SEARCH',
+  hints: ['Inspect the query preview.', 'Try a tautology.'],
 };
 
 const { api } = vi.hoisted(() => ({
@@ -21,6 +26,7 @@ const { api } = vi.hoisted(() => ({
     startLab: vi.fn(),
     labSession: vi.fn(),
     submitLab: vi.fn(),
+    searchProducts: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -35,23 +41,87 @@ beforeEach(() => {
   api.lab.mockResolvedValue({ lab });
   api.labProgress.mockResolvedValue({ progress: [] });
   api.startLab.mockResolvedValue({
-    progress: { id: 'progress-1', labId: lab.id, status: 'IN_PROGRESS', startedAt: '2026-01-01', completedAt: null, lab },
-    session: { id: 'session-1', labId: lab.id, startedAt: '2026-01-01', lastActivityAt: '2026-01-01', completedAt: null, status: 'ACTIVE', lab },
+    progress: {
+      id: 'progress-1',
+      labId: lab.id,
+      status: 'IN_PROGRESS',
+      startedAt: '2026-01-01',
+      completedAt: null,
+      lab,
+    },
+    session: {
+      id: 'session-1',
+      labId: lab.id,
+      startedAt: '2026-01-01',
+      lastActivityAt: '2026-01-01',
+      completedAt: null,
+      status: 'ACTIVE',
+      lab,
+    },
   });
-  api.labSession.mockResolvedValue({ session: { id: 'session-1', labId: lab.id, startedAt: '2026-01-01', lastActivityAt: '2026-01-01', completedAt: null, status: 'ACTIVE', lab } });
+  api.labSession.mockResolvedValue({
+    session: {
+      id: 'session-1',
+      labId: lab.id,
+      startedAt: '2026-01-01',
+      lastActivityAt: '2026-01-01',
+      completedAt: null,
+      status: 'ACTIVE',
+      lab,
+    },
+  });
   api.submitLab.mockResolvedValue({
-    success: true, completed: true, message: 'Submission accepted.',
-    session: { id: 'session-1', labId: lab.id, startedAt: '2026-01-01', lastActivityAt: '2026-01-01', completedAt: '2026-01-01', status: 'COMPLETED', lab },
-    progress: { id: 'progress-1', labId: lab.id, status: 'COMPLETED', startedAt: '2026-01-01', completedAt: '2026-01-01', lab },
+    success: true,
+    completed: true,
+    message: 'Submission accepted.',
+    session: {
+      id: 'session-1',
+      labId: lab.id,
+      startedAt: '2026-01-01',
+      lastActivityAt: '2026-01-01',
+      completedAt: '2026-01-01',
+      status: 'COMPLETED',
+      lab,
+    },
+    progress: {
+      id: 'progress-1',
+      labId: lab.id,
+      status: 'COMPLETED',
+      startedAt: '2026-01-01',
+      completedAt: '2026-01-01',
+      lab,
+    },
+  });
+  api.searchProducts.mockResolvedValue({
+    queryPreview: "SELECT name FROM products WHERE name LIKE '%' OR '1'='1%'",
+    results: [
+      {
+        name: 'Internal wholesale reconciliation note',
+        description: 'Escalation flag: CYBERLAB{product_search_tautology}',
+        price: 'Not for sale',
+        internal: true,
+      },
+    ],
   });
   api.completeLab.mockResolvedValue({
-    progress: { id: 'progress-1', labId: lab.id, status: 'COMPLETED', startedAt: '2026-01-01', completedAt: '2026-01-01', lab },
+    progress: {
+      id: 'progress-1',
+      labId: lab.id,
+      status: 'COMPLETED',
+      startedAt: '2026-01-01',
+      completedAt: '2026-01-01',
+      lab,
+    },
   });
 });
 
 describe('lab pages', () => {
   it('renders labs, backend progress, and filters', async () => {
-    render(<MemoryRouter><LabsPage /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <LabsPage />
+      </MemoryRouter>,
+    );
     expect(await screen.findByRole('heading', { name: 'Labs' })).toBeInTheDocument();
     expect(screen.getByText('SQL Injection Basics')).toBeInTheDocument();
     expect(screen.getByText('Not Started')).toBeInTheDocument();
@@ -62,15 +132,34 @@ describe('lab pages', () => {
   it('loads a lab detail page and updates progress through the API', async () => {
     render(
       <MemoryRouter initialEntries={['/labs/sql-injection-basics']}>
-        <Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes>
+        <Routes>
+          <Route path="/labs/:slug" element={<LabDetailPage />} />
+        </Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByRole('heading', { name: 'SQL Injection Basics' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'SQL Injection Basics' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
     await waitFor(() => expect(api.startLab).toHaveBeenCalledWith('sql-injection-basics'));
-    fireEvent.change(screen.getByLabelText('Submission'), { target: { value: 'CYBERLAB_READY' } });
+    expect(screen.getByText('Inspect the query preview.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Product search'), {
+      target: { value: "' OR '1'='1'--" },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() =>
+      expect(api.searchProducts).toHaveBeenCalledWith('sql-injection-basics', "' OR '1'='1'--"),
+    );
+    expect(await screen.findByText(/Escalation flag/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), {
+      target: { value: 'CYBERLAB{product_search_tautology}' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
-    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('sql-injection-basics', { confirmation: 'CYBERLAB_READY' }));
+    await waitFor(() =>
+      expect(api.submitLab).toHaveBeenCalledWith('sql-injection-basics', {
+        flag: 'CYBERLAB{product_search_tautology}',
+      }),
+    );
     expect(await screen.findByText('Completed — 100 points')).toBeInTheDocument();
   });
 });

@@ -11,3 +11,9 @@ export const emptyBodySchema = z.object({}).strict();
 export const submissionSchema = z
   .object({ submission: z.record(z.string(), z.unknown()) })
   .strict();
+
+export const productSearchSchema = z
+  .object({
+    search: z.string().max(120).default(''),
+  })
+  .strict();

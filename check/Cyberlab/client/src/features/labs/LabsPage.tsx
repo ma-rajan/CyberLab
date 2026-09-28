@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiError, api, type ApiLab, type ApiLabProgress, type LabCategory, type LabDifficulty } from '../../lib/api';
+import {
+  ApiError,
+  api,
+  type ApiLab,
+  type ApiLabProgress,
+  type LabCategory,
+  type LabDifficulty,
+} from '../../lib/api';
 import { categoryLabel, difficultyLabel, progressLabel } from './lab-ui';
 
 const categoryOptions: Array<LabCategory | 'ALL'> = [
@@ -13,7 +20,12 @@ const categoryOptions: Array<LabCategory | 'ALL'> = [
   'NETWORK_SECURITY',
   'OTHER',
 ];
-const difficultyOptions: Array<LabDifficulty | 'ALL'> = ['ALL', 'BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
+const difficultyOptions: Array<LabDifficulty | 'ALL'> = [
+  'ALL',
+  'BEGINNER',
+  'INTERMEDIATE',
+  'ADVANCED',
+];
 
 export function LabsPage() {
   const [labs, setLabs] = useState<ApiLab[]>([]);
@@ -51,7 +63,12 @@ export function LabsPage() {
   }, [labs, search, category, difficulty]);
 
   if (isLoading) return <p className="font-mono text-cyber">Loading labs…</p>;
-  if (error) return <p role="alert" className="text-red-300">{error}</p>;
+  if (error)
+    return (
+      <p role="alert" className="text-red-300">
+        {error}
+      </p>
+    );
 
   return (
     <section>
@@ -75,7 +92,11 @@ export function LabsPage() {
           onChange={(event) => setCategory(event.target.value as LabCategory | 'ALL')}
           className="rounded-md border border-slate-700 bg-ink px-3 py-2 text-white outline-none focus:border-cyber"
         >
-          {categoryOptions.map((option) => <option key={option} value={option}>{option === 'ALL' ? 'All categories' : categoryLabel(option)}</option>)}
+          {categoryOptions.map((option) => (
+            <option key={option} value={option}>
+              {option === 'ALL' ? 'All categories' : categoryLabel(option)}
+            </option>
+          ))}
         </select>
         <select
           aria-label="Filter by difficulty"
@@ -83,7 +104,11 @@ export function LabsPage() {
           onChange={(event) => setDifficulty(event.target.value as LabDifficulty | 'ALL')}
           className="rounded-md border border-slate-700 bg-ink px-3 py-2 text-white outline-none focus:border-cyber"
         >
-          {difficultyOptions.map((option) => <option key={option} value={option}>{option === 'ALL' ? 'All difficulties' : difficultyLabel(option)}</option>)}
+          {difficultyOptions.map((option) => (
+            <option key={option} value={option}>
+              {option === 'ALL' ? 'All difficulties' : difficultyLabel(option)}
+            </option>
+          ))}
         </select>
       </div>
       {filteredLabs.length === 0 ? (
@@ -93,17 +118,31 @@ export function LabsPage() {
           {filteredLabs.map((lab) => {
             const labProgress = progressByLabId.get(lab.id);
             return (
-              <Link key={lab.id} to={`/labs/${lab.slug}`} className="rounded-xl border border-slate-800 bg-panel p-6 transition hover:border-cyber/60 hover:bg-slate-900">
+              <Link
+                key={lab.id}
+                to={`/labs/${lab.slug}`}
+                className="rounded-xl border border-slate-800 bg-panel p-6 transition hover:border-cyber/60 hover:bg-slate-900"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <h2 className="text-xl font-semibold text-white">{lab.title}</h2>
-                  <span className="rounded bg-cyan-950 px-2 py-1 text-xs font-medium text-cyber">Coming Soon</span>
+                  <span className="rounded bg-cyan-950 px-2 py-1 text-xs font-medium text-cyber">
+                    {lab.challengeType === 'PLACEHOLDER' ? 'Coming Soon' : 'Available'}
+                  </span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-400">{lab.description}</p>
                 <div className="mt-5 flex flex-wrap gap-2 text-xs">
-                  <span className="rounded bg-slate-800 px-2 py-1 text-slate-200">{categoryLabel(lab.category)}</span>
-                  <span className="rounded bg-slate-800 px-2 py-1 text-slate-200">{difficultyLabel(lab.difficulty)}</span>
-                  <span className="rounded bg-slate-800 px-2 py-1 text-slate-200">{lab.estimatedMinutes} minutes</span>
-                  <span className="rounded bg-slate-800 px-2 py-1 text-signal">{lab.points} points</span>
+                  <span className="rounded bg-slate-800 px-2 py-1 text-slate-200">
+                    {categoryLabel(lab.category)}
+                  </span>
+                  <span className="rounded bg-slate-800 px-2 py-1 text-slate-200">
+                    {difficultyLabel(lab.difficulty)}
+                  </span>
+                  <span className="rounded bg-slate-800 px-2 py-1 text-slate-200">
+                    {lab.estimatedMinutes} minutes
+                  </span>
+                  <span className="rounded bg-slate-800 px-2 py-1 text-signal">
+                    {lab.points} points
+                  </span>
                 </div>
                 <p className="mt-4 text-sm text-cyber">{progressLabel(labProgress?.status)}</p>
               </Link>
