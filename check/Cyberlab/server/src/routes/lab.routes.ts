@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { attachAuthenticatedUser, requireAuthentication } from '../middleware/authenticate.js';
 import { requireCsrfToken } from '../middleware/csrf.js';
-import { completeLab, getLab, getLabProgress, getProgress, getSession, listLabs, searchFeedbackTarget, searchProductTarget, startLab, submitLab } from '../modules/labs/lab.controller.js';
+import { completeLab, getLab, getLabProgress, getProfileTarget, getProgress, getSession, listLabs, searchFeedbackTarget, searchProductTarget, startLab, submitLab } from '../modules/labs/lab.controller.js';
 
 export const labRouter = Router();
 
@@ -11,6 +11,7 @@ labRouter.get('/progress', requireAuthentication, getProgress);
 labRouter.post('/:slug/start', requireAuthentication, requireCsrfToken, startLab);
 labRouter.get('/:slug/target/products', requireAuthentication, searchProductTarget);
 labRouter.get('/:slug/target/feedback', requireAuthentication, searchFeedbackTarget);
+labRouter.get('/:slug/target/profile', requireAuthentication, getProfileTarget);
 labRouter.get('/:slug/session', requireAuthentication, getSession);
 labRouter.get('/:slug/progress', requireAuthentication, getLabProgress);
 labRouter.post('/:slug/submit', requireAuthentication, requireCsrfToken, submitLab);

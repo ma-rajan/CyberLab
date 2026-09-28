@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 async function main() {
   const productSearchFlagHash = await bcrypt.hash('CYBERLAB{product_search_tautology}', 12);
   const feedbackSearchFlagHash = await bcrypt.hash('XSS_PREVIEW_CONFIRMED', 12);
+  const profileAccessFlagHash = await bcrypt.hash('IDOR_PROFILE_ACCESS_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -87,17 +88,24 @@ async function main() {
     },
     {
       slug: 'idor-fundamentals',
-      title: 'IDOR Fundamentals',
-      description: 'A future lab about protecting user-owned resources with authorization.',
+      title: 'Profile Access — IDOR Basics',
+      description: 'Investigate a profile lookup target that trusts a user-controlled identifier.',
       category: 'ACCESS_CONTROL' as const,
-      difficulty: 'INTERMEDIATE' as const,
-      estimatedMinutes: 30,
-      points: 150,
+      difficulty: 'BEGINNER' as const,
+      estimatedMinutes: 25,
+      points: 100,
       isPublished: true,
-      objective: 'Understand how to protect user-owned resources with authorization.',
-      instructions:
-        'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
-      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
+      objective: 'Recognize that object identifiers require server-side ownership checks.',
+      instructions: 'Start the lab and request the training profile assigned to you. Then change the profile ID and observe whether the target verifies ownership. The target uses fixed synthetic data only. Submit the completion value returned after the intended training interaction.',
+      target: 'Profile Access — GET /api/labs/idor-fundamentals/target/profile?id=<profileId>',
+      challengeType: 'IDOR_PROFILE_ACCESS',
+      validatorType: 'FLAG',
+      flagHash: profileAccessFlagHash,
+      hints: JSON.stringify([
+        'Look at the identifier used when requesting a profile.',
+        'Does changing the object ID change which resource is returned?',
+        'Ask whether the target checks that the requested resource belongs to you.',
+      ]),
     },
   ];
 

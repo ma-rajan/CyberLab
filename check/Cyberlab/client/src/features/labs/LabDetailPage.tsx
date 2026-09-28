@@ -7,6 +7,7 @@ import {
   type ApiLabProgress,
   type ApiLabSession,
   type ApiProductSearchResult,
+  type ApiTrainingProfile,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, progressLabel } from './lab-ui';
 
@@ -22,6 +23,9 @@ export function LabDetailPage() {
   const [feedback, setFeedback] = useState('');
   const [feedbackDocument, setFeedbackDocument] = useState<string | null>(null);
   const [completionToken, setCompletionToken] = useState<string | null>(null);
+  const [profileId, setProfileId] = useState('101');
+  const [profile, setProfile] = useState<ApiTrainingProfile | null>(null);
+  const [profileCompletionToken, setProfileCompletionToken] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +78,7 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH'
+          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS'
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -114,6 +118,15 @@ export function LabDetailPage() {
       const response = await api.searchFeedback(slug, feedback);
       setFeedbackDocument(response.document); setCompletionToken(response.completionToken);
     } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to load the target preview.'); }
+    finally { setIsSubmitting(false); }
+  }
+
+  async function viewProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setProfileCompletionToken(null); setIsSubmitting(true);
+    try {
+      const response = await api.trainingProfile(slug, profileId);
+      setProfile(response.profile); setProfileCompletionToken(response.completionToken);
+    } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to load the training profile.'); }
     finally { setIsSubmitting(false); }
   }
 
@@ -276,10 +289,22 @@ export function LabDetailPage() {
             {completionToken && <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Training markup detected. Completion value: <code>{completionToken}</code></p>}
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'IDOR_PROFILE_ACCESS' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Profile Access target</h2>
+            <p className="mt-1 text-sm text-slate-400">This target contains fixed synthetic training profiles only.</p>
+            <form onSubmit={viewProfile} className="mt-4 flex flex-wrap gap-3">
+              <input aria-label="Profile ID" inputMode="numeric" value={profileId} onChange={(event) => setProfileId(event.target.value)} className="min-w-36 flex-1 rounded-md border border-slate-700 bg-ink px-3 py-2 text-white outline-none focus:border-cyber" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">View Profile</button>
+            </form>
+            {profile && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-medium text-slate-100">{profile.displayName} <span className="text-signal">#{profile.id}</span></p><p className="mt-1 text-slate-400">{profile.role} — {profile.bio}</p></div>}
+            {profileCompletionToken && <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Unauthorized synthetic profile accessed. Completion value: <code>{profileCompletionToken}</code></p>}
+          </div>
+        )}
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH'
+              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS'
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -288,7 +313,7 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH'
+                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS'
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }

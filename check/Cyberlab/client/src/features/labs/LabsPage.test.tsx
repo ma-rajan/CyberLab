@@ -28,6 +28,7 @@ const { api } = vi.hoisted(() => ({
     submitLab: vi.fn(),
     searchProducts: vi.fn(),
     searchFeedback: vi.fn(),
+    trainingProfile: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -108,6 +109,10 @@ beforeEach(() => {
     document: '<h1>Feedback Search</h1><p>hello</p>',
     completionToken: 'XSS_PREVIEW_CONFIRMED',
   });
+  api.trainingProfile.mockResolvedValue({
+    profile: { id: 102, displayName: 'Jordan Training', role: 'Support coordinator', bio: 'Synthetic restricted profile.', owner: 'OTHER_TRAINING_USER' },
+    completionToken: 'IDOR_PROFILE_ACCESS_CONFIRMED',
+  });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -181,5 +186,20 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'XSS_PREVIEW_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('xss-fundamentals', { flag: 'XSS_PREVIEW_CONFIRMED' }));
+  });
+
+  it('renders the IDOR target and submits its server-provided completion value', async () => {
+    const idorLab = { ...lab, slug: 'idor-fundamentals', title: 'Profile Access — IDOR Basics', category: 'ACCESS_CONTROL' as const, challengeType: 'IDOR_PROFILE_ACCESS' };
+    api.lab.mockResolvedValue({ lab: idorLab });
+    render(<MemoryRouter initialEntries={['/labs/idor-fundamentals']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Profile Access — IDOR Basics' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.change(await screen.findByLabelText('Profile ID'), { target: { value: '102' } });
+    fireEvent.click(screen.getByRole('button', { name: 'View Profile' }));
+    await waitFor(() => expect(api.trainingProfile).toHaveBeenCalledWith('idor-fundamentals', '102'));
+    expect(await screen.findByText('Jordan Training')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'IDOR_PROFILE_ACCESS_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('idor-fundamentals', { flag: 'IDOR_PROFILE_ACCESS_CONFIRMED' }));
   });
 });

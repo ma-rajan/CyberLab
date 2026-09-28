@@ -25,6 +25,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 4 — Lab Engine Infrastructure | ✅ Completed |
 | Phase 5 — Challenge Content Engine  | ✅ Completed |
 | Phase 6 — Isolated XSS Challenge    | ✅ Completed |
+| Phase 7 — Isolated IDOR Challenge   | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -37,9 +38,8 @@ Phase 3 adds secure platform infrastructure for future labs:
   completing, and viewing only the current user's progress.
 - A protected Labs dashboard, filtering, lab details, and server-authoritative progress UI.
 
-The catalog retains the existing placeholder labs and now includes SQL Injection and XSS challenges.
-IDOR, authentication, and information-disclosure categories remain future-ready metadata rather
-than partially implemented targets.
+The catalog retains the existing placeholder labs and now includes SQL Injection, XSS, and IDOR
+challenges. Authentication and information-disclosure categories remain future-ready metadata.
 
 ## Phase 4 — Lab Engine Infrastructure
 
@@ -97,6 +97,7 @@ Secure CyberLab Platform
 │   ├── Isolated target modules
 │   │   ├── Product Search SQLi target (fixed data only)
 │   │   ├── Feedback Search XSS target (sandboxed document)
+│   │   ├── Profile Access IDOR target (fixed synthetic profiles)
 │   │   ├── Isolated Auth Lab
 │   │   └── Other Labs
 │   └── Progress
@@ -122,6 +123,21 @@ the existing server-side bcrypt validator and progress/session completion flow v
 
 Challenge definitions remain keyed by `challengeType`, so new isolated target modules can reuse the
 same catalog, session, progress, submission, and validator infrastructure without duplicating it.
+
+## Phase 7 — Isolated IDOR Challenge
+
+The seed command upgrades `idor-fundamentals` into **Profile Access — IDOR Basics**. Its target is
+`GET /api/labs/idor-fundamentals/target/profile?id=<profileId>` and is available only after the
+authenticated learner has started their own lab session.
+
+Profile Access deliberately omits an ownership check only for two fixed synthetic target profiles.
+Changing the profile ID demonstrates broken object-level authorization without reading the CyberLab
+`User` table, platform database records, or any real account data. The normal platform authorization,
+session, progress, and submission endpoints remain unchanged and protected.
+
+The target returns a training-only completion value after the intended synthetic-profile interaction.
+The existing bcrypt-backed server validator, rather than the browser, validates it and records the
+existing session/progress completion state.
 
 ## Setup
 

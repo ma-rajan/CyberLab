@@ -23,3 +23,9 @@ export const feedbackSearchSchema = z
     feedback: z.string().max(500).default(''),
   })
   .strict();
+
+export const profileAccessSchema = z
+  .object({
+    id: z.coerce.number().int().min(100).max(999),
+  })
+  .strict();

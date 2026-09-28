@@ -57,6 +57,13 @@ export interface ApiFeedbackSearch {
   document: string;
   completionToken: string | null;
 }
+export interface ApiTrainingProfile {
+  id: number;
+  displayName: string;
+  role: string;
+  bio: string;
+  owner: 'CURRENT_TRAINING_LEARNER' | 'OTHER_TRAINING_USER';
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -141,6 +148,10 @@ export const api = {
   searchFeedback: (slug: string, feedback: string) =>
     request<ApiFeedbackSearch>(
       `/api/labs/${encodeURIComponent(slug)}/target/feedback?feedback=${encodeURIComponent(feedback)}`,
+    ),
+  trainingProfile: (slug: string, id: string) =>
+    request<{ profile: ApiTrainingProfile; completionToken: string | null }>(
+      `/api/labs/${encodeURIComponent(slug)}/target/profile?id=${encodeURIComponent(id)}`,
     ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),
