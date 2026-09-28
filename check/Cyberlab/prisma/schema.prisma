@@ -67,6 +67,10 @@ model Lab {
   objective        String        @default("")
   instructions     String        @default("")
   hints            String        @default("[]")
+  target           String        @default("")
+  challengeType    String        @default("PLACEHOLDER")
+  validatorType    String        @default("PLACEHOLDER")
+  flagHash         String?
 
   @@index([isPublished])
   @@index([category, difficulty])

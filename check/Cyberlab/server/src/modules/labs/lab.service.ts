@@ -2,6 +2,7 @@ import { LabSessionStatus } from '@prisma/client';
 import { AppError } from '../auth/auth.errors.js';
 import { getLabDefinition } from './lab-engine.js';
 import { labRepository } from './lab.repository.js';
+import { searchProducts } from './isolated-targets/product-search.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -42,7 +43,10 @@ export const labService = {
     const session = await labRepository.findSession(userId, lab.id);
     if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before submitting an attempt.');
     if (session.status === LabSessionStatus.COMPLETED) return { success: true, completed: true, message: 'This lab is already completed.', session };
-    const result = await getLabDefinition(slug).validate(submission);
+    const result = await getLabDefinition(lab.challengeType).validate(submission, {
+      validatorType: lab.validatorType,
+      flagHash: lab.flagHash,
+    });
     if (result.completed) {
       const completedSession = await labRepository.completeSession(userId, lab.id);
       const progress = await labRepository.completeProgress(userId, lab.id);
@@ -56,5 +60,13 @@ export const labService = {
     if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before completing it.');
     if (session.status !== LabSessionStatus.COMPLETED) throw new AppError(409, 'LAB_NOT_VALIDATED', 'Submit a valid attempt before completing this lab.');
     return labRepository.findProgressByUserAndLab(userId, lab.id);
+  },
+  async searchProductTarget(userId: string, slug: string, search: string) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'SQL_INJECTION_PRODUCT_SEARCH') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id);
+    return searchProducts(search);
   },
 };
