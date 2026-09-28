@@ -27,6 +27,7 @@ const { api } = vi.hoisted(() => ({
     labSession: vi.fn(),
     submitLab: vi.fn(),
     searchProducts: vi.fn(),
+    searchFeedback: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -103,6 +104,10 @@ beforeEach(() => {
       },
     ],
   });
+  api.searchFeedback.mockResolvedValue({
+    document: '<h1>Feedback Search</h1><p>hello</p>',
+    completionToken: 'XSS_PREVIEW_CONFIRMED',
+  });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -161,5 +166,20 @@ describe('lab pages', () => {
       }),
     );
     expect(await screen.findByText('Completed — 100 points')).toBeInTheDocument();
+  });
+
+  it('renders the XSS target in a sandboxed iframe and submits its completion value', async () => {
+    const xssLab = { ...lab, slug: 'xss-fundamentals', title: 'Reflected XSS Basics', challengeType: 'XSS_FEEDBACK_SEARCH' };
+    api.lab.mockResolvedValue({ lab: xssLab });
+    render(<MemoryRouter initialEntries={['/labs/xss-fundamentals']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Reflected XSS Basics' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.change(await screen.findByLabelText('Feedback search'), { target: { value: '<script>/* training */</script>' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    await waitFor(() => expect(api.searchFeedback).toHaveBeenCalledWith('xss-fundamentals', '<script>/* training */</script>'));
+    expect(screen.getByTitle('Isolated Feedback Search preview')).toHaveAttribute('sandbox', 'allow-scripts');
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'XSS_PREVIEW_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('xss-fundamentals', { flag: 'XSS_PREVIEW_CONFIRMED' }));
   });
 });

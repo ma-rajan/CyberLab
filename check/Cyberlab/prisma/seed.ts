@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   const productSearchFlagHash = await bcrypt.hash('CYBERLAB{product_search_tautology}', 12);
+  const feedbackSearchFlagHash = await bcrypt.hash('XSS_PREVIEW_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -37,17 +38,24 @@ async function main() {
     },
     {
       slug: 'xss-fundamentals',
-      title: 'XSS Fundamentals',
-      description: 'A future introductory lab covering safe client-side rendering practices.',
+      title: 'Reflected XSS Basics',
+      description: 'Investigate a feedback search preview that reflects supplied markup without escaping it.',
       category: 'CLIENT_SIDE_SECURITY' as const,
       difficulty: 'BEGINNER' as const,
-      estimatedMinutes: 25,
+      estimatedMinutes: 20,
       points: 100,
       isPublished: true,
-      objective: 'Understand safe client-side rendering practices.',
-      instructions:
-        'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
-      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
+      objective: 'Recognize how unescaped reflected input can be interpreted as active browser markup.',
+      instructions: 'Start the lab, try ordinary feedback first, then test harmless markup in the Feedback Search target. The preview is sandboxed and local. When the target supplies a completion value, submit it through the platform form.',
+      target: 'Feedback Search — GET /api/labs/xss-fundamentals/target/feedback?feedback=<text>',
+      challengeType: 'XSS_FEEDBACK_SEARCH',
+      validatorType: 'FLAG',
+      flagHash: feedbackSearchFlagHash,
+      hints: JSON.stringify([
+        'Check whether your input is displayed directly in the target response.',
+        'Try entering harmless HTML rather than ordinary text.',
+        'Think about what a browser does with an event handler or script element received from unescaped input.',
+      ]),
     },
     {
       slug: 'broken-access-control',

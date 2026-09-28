@@ -53,6 +53,10 @@ export interface ApiProductSearchResult {
   price: string;
   internal?: boolean;
 }
+export interface ApiFeedbackSearch {
+  document: string;
+  completionToken: string | null;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -133,6 +137,10 @@ export const api = {
   searchProducts: (slug: string, search: string) =>
     request<{ queryPreview: string; results: ApiProductSearchResult[] }>(
       `/api/labs/${encodeURIComponent(slug)}/target/products?search=${encodeURIComponent(search)}`,
+    ),
+  searchFeedback: (slug: string, feedback: string) =>
+    request<ApiFeedbackSearch>(
+      `/api/labs/${encodeURIComponent(slug)}/target/feedback?feedback=${encodeURIComponent(feedback)}`,
     ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),

@@ -17,3 +17,9 @@ export const productSearchSchema = z
     search: z.string().max(120).default(''),
   })
   .strict();
+
+export const feedbackSearchSchema = z
+  .object({
+    feedback: z.string().max(500).default(''),
+  })
+  .strict();

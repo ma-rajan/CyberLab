@@ -34,8 +34,9 @@ const placeholderDefinition: LabDefinition = {
   },
 };
 
-const flagDefinition: LabDefinition = {
-  challengeType: 'SQL_INJECTION_PRODUCT_SEARCH',
+function createFlagDefinition(challengeType: string, successMessage: string): LabDefinition {
+  return {
+    challengeType,
   validate: async (submission, context) => {
     const flag = typeof submission.flag === 'string' ? submission.flag : '';
     const accepted =
@@ -45,15 +46,17 @@ const flagDefinition: LabDefinition = {
     return {
       success: accepted,
       completed: accepted,
-      message: accepted
-        ? 'Correct flag. Product Search is complete.'
-        : 'That flag is not correct. Keep investigating the isolated target.',
+      message: accepted ? successMessage : 'That completion value is not correct. Keep investigating the isolated target.',
     };
   },
-};
+  };
+}
 
 const definitions = new Map<string, LabDefinition>();
-definitions.set(flagDefinition.challengeType, flagDefinition);
+for (const definition of [
+  createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
+  createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
+]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {
   definitions.set(definition.challengeType, definition);
