@@ -85,7 +85,9 @@ export class ApiError extends Error {
     super(message);
   }
 }
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3001';
+// Keep the default API host aligned with Vite's documented localhost URL so
+// the browser sends the CSRF cookie back on login and registration requests.
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 let csrfToken: string | null = null;
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
