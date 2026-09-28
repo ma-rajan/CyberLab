@@ -24,6 +24,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 3 — Lab Management Foundation | ✅ Completed |
 | Phase 4 — Lab Engine Infrastructure | ✅ Completed |
 | Phase 5 — Challenge Content Engine  | ✅ Completed |
+| Phase 6 — Isolated XSS Challenge    | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -36,9 +37,9 @@ Phase 3 adds secure platform infrastructure for future labs:
   completing, and viewing only the current user's progress.
 - A protected Labs dashboard, filtering, lab details, and server-authoritative progress UI.
 
-The catalog retains the existing placeholder labs and now includes one available SQL Injection
-challenge. XSS, IDOR, authentication, and information-disclosure categories remain represented
-by future-ready metadata rather than partially implemented targets.
+The catalog retains the existing placeholder labs and now includes SQL Injection and XSS challenges.
+IDOR, authentication, and information-disclosure categories remain future-ready metadata rather
+than partially implemented targets.
 
 ## Phase 4 — Lab Engine Infrastructure
 
@@ -95,7 +96,7 @@ Secure CyberLab Platform
 ├── Lab Engine
 │   ├── Isolated target modules
 │   │   ├── Product Search SQLi target (fixed data only)
-│   │   ├── Future XSS Lab
+│   │   ├── Feedback Search XSS target (sandboxed document)
 │   │   ├── Isolated Auth Lab
 │   │   └── Other Labs
 │   └── Progress
@@ -105,6 +106,22 @@ Targets are session-gated and use only target-specific fixed data. The secure pl
 authentication, authorization, sessions, progress, and SQLite database are never used as a
 vulnerability target. Future challenge types register behind the existing engine and must keep
 that separation.
+
+## Phase 6 — Isolated XSS Challenge
+
+The seed command upgrades `xss-fundamentals` into **Reflected XSS Basics**, using Feedback Search
+at `GET /api/labs/xss-fundamentals/target/feedback?feedback=<text>`. The route requires both an
+authenticated user and that user's existing lab session. It returns a target-only document and no
+platform records, private validator fields, or lab flag.
+
+The React application never renders that untrusted document as page HTML. It presents it only in
+an iframe with `sandbox="allow-scripts"`, which gives the target an opaque origin. The target's CSP
+blocks network access and external resources, while its deliberate reflection remains available for
+harmless local training input. A successful training marker yields a non-secret completion value;
+the existing server-side bcrypt validator and progress/session completion flow verify it.
+
+Challenge definitions remain keyed by `challengeType`, so new isolated target modules can reuse the
+same catalog, session, progress, submission, and validator infrastructure without duplicating it.
 
 ## Setup
 

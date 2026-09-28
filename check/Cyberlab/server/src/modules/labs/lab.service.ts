@@ -3,6 +3,7 @@ import { AppError } from '../auth/auth.errors.js';
 import { getLabDefinition } from './lab-engine.js';
 import { labRepository } from './lab.repository.js';
 import { searchProducts } from './isolated-targets/product-search.target.js';
+import { renderFeedbackSearch } from './isolated-targets/feedback-search.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -68,5 +69,13 @@ export const labService = {
     if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
     await labRepository.touchSession(userId, lab.id);
     return searchProducts(search);
+  },
+  async searchFeedbackTarget(userId: string, slug: string, feedback: string) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'XSS_FEEDBACK_SEARCH') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id);
+    return renderFeedbackSearch(feedback);
   },
 };

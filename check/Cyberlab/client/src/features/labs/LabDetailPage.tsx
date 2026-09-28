@@ -19,6 +19,9 @@ export function LabDetailPage() {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<ApiProductSearchResult[] | null>(null);
   const [queryPreview, setQueryPreview] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackDocument, setFeedbackDocument] = useState<string | null>(null);
+  const [completionToken, setCompletionToken] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +74,7 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH'
+          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH'
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -103,6 +106,15 @@ export function LabDetailPage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function searchFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setCompletionToken(null); setIsSubmitting(true);
+    try {
+      const response = await api.searchFeedback(slug, feedback);
+      setFeedbackDocument(response.document); setCompletionToken(response.completionToken);
+    } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to load the target preview.'); }
+    finally { setIsSubmitting(false); }
   }
 
   if (isLoading) return <p className="font-mono text-cyber">Loading lab…</p>;
@@ -252,10 +264,22 @@ export function LabDetailPage() {
             )}
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'XSS_FEEDBACK_SEARCH' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Feedback Search target</h2>
+            <p className="mt-1 text-sm text-slate-400">This target preview runs in a sandboxed local document, separate from CyberLab.</p>
+            <form onSubmit={searchFeedback} className="mt-4 flex flex-wrap gap-3">
+              <input aria-label="Feedback search" value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Search feedback" className="min-w-52 flex-1 rounded-md border border-slate-700 bg-ink px-3 py-2 text-white outline-none focus:border-cyber" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Preview</button>
+            </form>
+            {feedbackDocument && <iframe title="Isolated Feedback Search preview" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={feedbackDocument} className="mt-4 h-48 w-full rounded border border-slate-700 bg-white" />}
+            {completionToken && <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Training markup detected. Completion value: <code>{completionToken}</code></p>}
+          </div>
+        )}
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH'
+              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH'
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -264,7 +288,7 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH'
+                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH'
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }
