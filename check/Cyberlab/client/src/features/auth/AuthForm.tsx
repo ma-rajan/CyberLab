@@ -82,6 +82,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             autoComplete={isRegister ? 'new-password' : 'current-password'}
             type="password"
             required
+            minLength={isRegister ? 12 : undefined}
+            maxLength={128}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="mt-2 w-full rounded-md border border-slate-700 bg-ink px-3 py-2 text-white outline-none focus:border-cyber"
