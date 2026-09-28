@@ -5,6 +5,7 @@ import { labRepository } from './lab.repository.js';
 import { searchProducts } from './isolated-targets/product-search.target.js';
 import { renderFeedbackSearch } from './isolated-targets/feedback-search.target.js';
 import { getTrainingProfile } from './isolated-targets/profile-access.target.js';
+import { attemptTrainingLogin } from './isolated-targets/authentication-bypass.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -86,5 +87,13 @@ export const labService = {
     if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
     await labRepository.touchSession(userId, lab.id);
     return getTrainingProfile(profileId);
+  },
+  async loginTrainingTarget(userId: string, slug: string, credentials: { username: string; password: string }) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'AUTHENTICATION_BYPASS') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id);
+    return attemptTrainingLogin(credentials.username, credentials.password);
   },
 };

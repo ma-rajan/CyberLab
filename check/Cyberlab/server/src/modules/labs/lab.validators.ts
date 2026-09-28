@@ -29,3 +29,10 @@ export const profileAccessSchema = z
     id: z.coerce.number().int().min(100).max(999),
   })
   .strict();
+
+export const trainingLoginSchema = z
+  .object({
+    username: z.string().max(80).default(''),
+    password: z.string().max(120).default(''),
+  })
+  .strict();

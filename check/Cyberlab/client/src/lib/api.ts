@@ -64,6 +64,12 @@ export interface ApiTrainingProfile {
   bio: string;
   owner: 'CURRENT_TRAINING_LEARNER' | 'OTHER_TRAINING_USER';
 }
+export interface ApiTrainingLoginResult {
+  authenticated: boolean;
+  role?: string;
+  message: string;
+  completionToken: string | null;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -152,6 +158,11 @@ export const api = {
   trainingProfile: (slug: string, id: string) =>
     request<{ profile: ApiTrainingProfile; completionToken: string | null }>(
       `/api/labs/${encodeURIComponent(slug)}/target/profile?id=${encodeURIComponent(id)}`,
+    ),
+  trainingLogin: (slug: string, credentials: { username: string; password: string }) =>
+    authPost<ApiTrainingLoginResult>(
+      `/api/labs/${encodeURIComponent(slug)}/target/login`,
+      credentials,
     ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),
