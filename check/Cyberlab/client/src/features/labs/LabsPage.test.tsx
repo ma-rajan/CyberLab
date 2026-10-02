@@ -32,6 +32,7 @@ const { api } = vi.hoisted(() => ({
     trainingLogin: vi.fn(),
     trainingReport: vi.fn(),
     fetchMockResource: vi.fn(),
+    searchDirectory: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -119,6 +120,7 @@ beforeEach(() => {
   api.trainingLogin.mockResolvedValue({ authenticated: true, role: 'learner', message: 'Synthetic training target accepted the login attempt.', completionToken: 'AUTH_BYPASS_CONFIRMED' });
   api.trainingReport.mockResolvedValue({ section: 'admin-audit', title: 'Administrator audit report', summary: 'Synthetic audit data.', completionToken: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' });
   api.fetchMockResource.mockResolvedValue({ path: '/internal/admin-config', status: 'ok', message: 'Synthetic internal configuration loaded.', completionToken: 'SSRF_INTERNAL_CONFIG_CONFIRMED' });
+  api.searchDirectory.mockResolvedValue({ queryPreview: "SELECT id, username, role FROM mock_users WHERE username = 'alice'", records: [{ id: 3, username: 'auditor', role: 'admin', status: 'internal-review', flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }] });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -257,5 +259,32 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'SSRF_INTERNAL_CONFIG_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('ssrf', { flag: 'SSRF_INTERNAL_CONFIG_CONFIRMED' }));
+  });
+
+  it('renders the isolated SQLi directory target, reports rejected input, and submits its completion value', async () => {
+    const sqliLab = { ...lab, slug: 'sqli', title: 'SQL Injection', category: 'INJECTION' as const, challengeType: 'SQLI_USER_DIRECTORY' };
+    api.lab.mockResolvedValue({ lab: sqliLab });
+    api.searchDirectory.mockRejectedValueOnce(new Error('Rejected mock query.'));
+    render(<MemoryRouter initialEntries={['/labs/sqli']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'SQL Injection' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.change(await screen.findByLabelText('Directory query'), { target: { value: 'DROP TABLE mock_users' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search Directory' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to search the mock directory.');
+    fireEvent.change(screen.getByLabelText('Directory query'), { target: { value: "alice' OR '1'='1" } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search Directory' }));
+    await waitFor(() => expect(api.searchDirectory).toHaveBeenLastCalledWith('sqli', "alice' OR '1'='1"));
+    expect(await screen.findByText('auditor')).toBeInTheDocument();
+    expect(screen.getByText(/SQLI_DIRECTORY_ACCESS_CONFIRMED/)).toBeInTheDocument();
+    api.submitLab.mockResolvedValueOnce({
+      success: false, completed: false, message: 'That completion value is not correct.',
+      session: { id: 'session-1', labId: sqliLab.id, startedAt: '2026-01-01', lastActivityAt: '2026-01-01', completedAt: null, status: 'ACTIVE', lab: sqliLab },
+    });
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('sqli', { flag: 'wrong' }));
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('sqli', { flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }));
   });
 });

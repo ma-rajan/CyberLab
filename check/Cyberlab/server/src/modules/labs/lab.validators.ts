@@ -48,3 +48,9 @@ export const mockFetchSchema = z
     url: z.string().min(1).max(160),
   })
   .strict();
+
+export const directorySearchSchema = z
+  .object({
+    q: z.string().min(1).max(120),
+  })
+  .strict();

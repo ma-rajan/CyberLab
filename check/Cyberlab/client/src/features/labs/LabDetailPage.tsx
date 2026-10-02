@@ -11,6 +11,7 @@ import {
   type ApiTrainingLoginResult,
   type ApiTrainingReport,
   type ApiMockFetchResponse,
+  type ApiDirectoryRecord,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, progressLabel } from './lab-ui';
 
@@ -36,6 +37,9 @@ export function LabDetailPage() {
   const [trainingReport, setTrainingReport] = useState<ApiTrainingReport | null>(null);
   const [mockUrl, setMockUrl] = useState('/public/status');
   const [mockFetchResponse, setMockFetchResponse] = useState<ApiMockFetchResponse | null>(null);
+  const [directoryQuery, setDirectoryQuery] = useState('alice');
+  const [directoryPreview, setDirectoryPreview] = useState<string | null>(null);
+  const [directoryRecords, setDirectoryRecords] = useState<ApiDirectoryRecord[] | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +92,7 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH'
+          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH' || lab?.challengeType === 'SQLI_USER_DIRECTORY'
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -161,6 +165,15 @@ export function LabDetailPage() {
     try {
       setMockFetchResponse(await api.fetchMockResource(slug, mockUrl));
     } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to fetch the mock target.'); }
+    finally { setIsSubmitting(false); }
+  }
+
+  async function searchDirectory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setDirectoryPreview(null); setDirectoryRecords(null); setIsSubmitting(true);
+    try {
+      const response = await api.searchDirectory(slug, directoryQuery);
+      setDirectoryPreview(response.queryPreview); setDirectoryRecords(response.records);
+    } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to search the mock directory.'); }
     finally { setIsSubmitting(false); }
   }
 
@@ -372,10 +385,22 @@ export function LabDetailPage() {
             {mockFetchResponse && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-mono text-signal">{mockFetchResponse.path} — {mockFetchResponse.status}</p><p className="mt-1 text-slate-400">{mockFetchResponse.message}</p>{mockFetchResponse.completionToken && <p className="mt-3 text-signal">Internal mock resource accessed. Completion value: <code>{mockFetchResponse.completionToken}</code></p>}</div>}
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'SQLI_USER_DIRECTORY' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Mock User Directory target</h2>
+            <p className="mt-1 text-sm text-slate-400">This target uses fixed synthetic records and a deterministic query simulation; it never executes SQL.</p>
+            <form onSubmit={searchDirectory} className="mt-4 flex flex-wrap gap-3">
+              <input aria-label="Directory query" value={directoryQuery} onChange={(event) => setDirectoryQuery(event.target.value)} className="min-w-52 flex-1 rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white outline-none focus:border-cyber" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Search Directory</button>
+            </form>
+            {directoryPreview && <pre className="mt-4 overflow-x-auto rounded bg-black/30 p-3 text-xs text-signal">{directoryPreview}</pre>}
+            {directoryRecords && <ul className="mt-4 space-y-2">{directoryRecords.map((record) => <li key={record.id} className="rounded border border-slate-800 p-3 text-sm"><p className="font-medium text-slate-100">{record.username} <span className="text-signal">#{record.id}</span></p><p className="mt-1 text-slate-400">{record.role}{record.status ? ` — ${record.status}` : ''}</p>{record.flag && <p className="mt-2 text-signal">Completion value: <code>{record.flag}</code></p>}</li>)}</ul>}
+          </div>
+        )}
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH'
+              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY'
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -384,7 +409,7 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH'
+                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY'
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }

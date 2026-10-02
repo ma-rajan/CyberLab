@@ -29,6 +29,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 8 — Isolated Authentication Challenge | ✅ Completed |
 | Phase 9 — Isolated Function Authorization Challenge | ✅ Completed |
 | Phase 10 — Isolated SSRF Challenge | ✅ Completed |
+| Phase 11 — Isolated SQL Injection Challenge | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -104,6 +105,7 @@ Secure CyberLab Platform
 │   │   ├── Training Login authentication target (fixed synthetic account)
 │   │   ├── Training Workspace function-authorization target (fixed synthetic reports)
 │   │   ├── Mock Fetch SSRF target (fixed in-memory path map)
+│   │   ├── Mock User Directory SQLi target (fixed synthetic records)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -187,6 +189,24 @@ a non-secret completion value that the existing bcrypt-backed validator verifies
 The server API tests cover authentication/session gates, public and internal mock responses,
 network-like input rejection, data isolation, and successful/failed completion. The frontend test
 covers mock request rendering, rejected-input feedback, and flag submission.
+
+## Phase 11 — Isolated SQL Injection Challenge
+
+**SQL Injection** is available at `GET /api/labs/sqli/search?q=<query>` after the learner starts
+their own lab session. The Mock User Directory contains only fixed synthetic records for `alice`,
+`bob`, and an internal `auditor` record. A normal public-name lookup returns its matching public
+record. A narrowly controlled boolean-tautology pattern demonstrates how unsafe string-based query
+construction can alter the intended comparison and expose the protected synthetic record.
+
+The target is a deterministic in-memory evaluator, not a SQL engine: it never calls Prisma or
+SQLite, parses general SQL, accesses CyberLab users/sessions/roles, reads files or environment
+values, or contacts a network or external database. Stacked-query markers and mutating, DDL, and
+other unsupported SQL-like constructs are rejected. The protected result contains only the
+training completion value, which the existing bcrypt-backed validator verifies.
+
+Server tests cover access gates, normal and controlled-injection responses, unsupported-input
+rejection, data isolation, metadata privacy, and completion. The frontend test covers query entry,
+response rendering, rejected-input feedback, and flag submission.
 
 ## Setup
 
