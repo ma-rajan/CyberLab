@@ -8,6 +8,7 @@ async function main() {
   const feedbackSearchFlagHash = await bcrypt.hash('XSS_PREVIEW_CONFIRMED', 12);
   const profileAccessFlagHash = await bcrypt.hash('IDOR_PROFILE_ACCESS_CONFIRMED', 12);
   const authenticationBypassFlagHash = await bcrypt.hash('AUTH_BYPASS_CONFIRMED', 12);
+  const brokenFunctionAccessFlagHash = await bcrypt.hash('BROKEN_FUNCTION_ACCESS_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -61,17 +62,25 @@ async function main() {
     },
     {
       slug: 'broken-access-control',
-      title: 'Broken Access Control',
-      description: 'A future lab about authorization boundaries and secure access checks.',
+      title: 'Broken Function-Level Authorization',
+      description: 'Investigate a training workspace that exposes an administrator-only report to any learner.',
       category: 'ACCESS_CONTROL' as const,
-      difficulty: 'INTERMEDIATE' as const,
+      difficulty: 'BEGINNER' as const,
       estimatedMinutes: 35,
       points: 150,
       isPublished: true,
-      objective: 'Recognize authorization boundaries and secure access checks.',
+      objective: 'Recognize that sensitive functions require a server-side role check on every request.',
       instructions:
-        'This lab is reserved for a future isolated runtime. Review the metadata and learning objective for now.',
-      hints: JSON.stringify(['The interactive target will be added in a future phase.']),
+        'Start the lab and open the synthetic learner workspace. Then change the requested section to the administrator audit report and observe whether the target verifies your role. The target contains only fixed training data. Submit the completion value returned after the intended training interaction.',
+      target: 'Training Workspace — GET /api/labs/broken-access-control/target/report?section=<section>',
+      challengeType: 'BROKEN_FUNCTION_ACCESS',
+      validatorType: 'FLAG',
+      flagHash: brokenFunctionAccessFlagHash,
+      hints: JSON.stringify([
+        'Begin with the normal learner workspace section.',
+        'Notice that the requested function is controlled by a section value.',
+        'Ask whether the target verifies an administrator role before returning the audit report.',
+      ]),
     },
     {
       slug: 'authentication-basics',

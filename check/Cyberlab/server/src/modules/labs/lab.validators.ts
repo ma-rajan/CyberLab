@@ -36,3 +36,9 @@ export const trainingLoginSchema = z
     password: z.string().max(120).default(''),
   })
   .strict();
+
+export const trainingReportSchema = z
+  .object({
+    section: z.enum(['overview', 'admin-audit']).default('overview'),
+  })
+  .strict();

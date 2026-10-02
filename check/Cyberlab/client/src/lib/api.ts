@@ -70,6 +70,12 @@ export interface ApiTrainingLoginResult {
   message: string;
   completionToken: string | null;
 }
+export interface ApiTrainingReport {
+  section: 'overview' | 'admin-audit';
+  title: string;
+  summary: string;
+  completionToken: string | null;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -165,6 +171,10 @@ export const api = {
     authPost<ApiTrainingLoginResult>(
       `/api/labs/${encodeURIComponent(slug)}/target/login`,
       credentials,
+    ),
+  trainingReport: (slug: string, section: 'overview' | 'admin-audit') =>
+    request<ApiTrainingReport>(
+      `/api/labs/${encodeURIComponent(slug)}/target/report?section=${encodeURIComponent(section)}`,
     ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),

@@ -89,6 +89,19 @@ async function createAuthenticationBypassChallenge(isPublished = true) {
   });
 }
 
+async function createBrokenFunctionAccessChallenge(isPublished = true) {
+  return prisma.lab.create({
+    data: {
+      slug: 'broken-access-control', title: 'Broken Function-Level Authorization', description: 'Training workspace challenge.',
+      category: 'ACCESS_CONTROL', difficulty: 'BEGINNER', estimatedMinutes: 35, points: 150, isPublished,
+      objective: 'Understand function-level authorization.', instructions: 'Use Training Workspace.',
+      hints: JSON.stringify(['Open the learner workspace.', 'Request the administrator report.']), target: 'Training Workspace',
+      challengeType: 'BROKEN_FUNCTION_ACCESS', validatorType: 'FLAG',
+      flagHash: await bcrypt.hash('BROKEN_FUNCTION_ACCESS_CONFIRMED', 12),
+    },
+  });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }
@@ -209,6 +222,17 @@ describe('lab API', () => {
     expect(JSON.stringify(response.body)).not.toContain('AUTH_BYPASS_CONFIRMED');
     await prisma.lab.update({ where: { slug: 'authentication-bypass-basics' }, data: { isPublished: false } });
     await request(app).get('/api/labs/authentication-bypass-basics').expect(404);
+  });
+
+  it('returns published function authorization metadata without private validator data and hides drafts', async () => {
+    await createBrokenFunctionAccessChallenge();
+    const response = await request(app).get('/api/labs/broken-access-control').expect(200);
+    expect(response.body.data.lab).toMatchObject({ title: 'Broken Function-Level Authorization', challengeType: 'BROKEN_FUNCTION_ACCESS' });
+    expect(JSON.stringify(response.body)).not.toContain('flagHash');
+    expect(JSON.stringify(response.body)).not.toContain('validatorType');
+    expect(JSON.stringify(response.body)).not.toContain('BROKEN_FUNCTION_ACCESS_CONFIRMED');
+    await prisma.lab.update({ where: { slug: 'broken-access-control' }, data: { isPublished: false } });
+    await request(app).get('/api/labs/broken-access-control').expect(404);
   });
 
   it('requires authentication for progress actions', async () => {
@@ -510,6 +534,31 @@ describe('lab API', () => {
     expect(completed.body.data).toMatchObject({ completed: true, progress: { status: 'COMPLETED' }, session: { status: 'COMPLETED' } });
     const repeated = await agent.post('/api/labs/authentication-bypass-basics/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'wrong' } }).expect(200);
     expect(repeated.body.data).toMatchObject({ completed: true, message: 'This lab is already completed.' });
+    expect(await prisma.labProgress.count({ where: { labId: lab.id, status: 'COMPLETED' } })).toBe(1);
+  });
+
+  it('isolates the function authorization target behind authentication and an owned lab session', async () => {
+    await createBrokenFunctionAccessChallenge();
+    await request(app).get('/api/labs/broken-access-control/target/report?section=overview').expect(401);
+    const { agent, token } = await authenticatedAgent('platform_learner', 'learner@example.test');
+    await agent.get('/api/labs/broken-access-control/target/report?section=overview').expect(404);
+    await agent.post('/api/labs/broken-access-control/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const overview = await agent.get('/api/labs/broken-access-control/target/report?section=overview').expect(200);
+    expect(overview.body.data).toMatchObject({ section: 'overview', completionToken: null });
+    const audit = await agent.get('/api/labs/broken-access-control/target/report?section=admin-audit').expect(200);
+    expect(audit.body.data).toMatchObject({ section: 'admin-audit', completionToken: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' });
+    expect(JSON.stringify(audit.body)).not.toContain('platform_learner');
+    await agent.get('/api/labs/broken-access-control/target/report?section=invalid').expect(400);
+  });
+
+  it('uses the existing validator and completion flow for the function authorization challenge', async () => {
+    const lab = await createBrokenFunctionAccessChallenge();
+    const { agent, token } = await authenticatedAgent('learner', 'learner@example.test');
+    await agent.post('/api/labs/broken-access-control/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const wrong = await agent.post('/api/labs/broken-access-control/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'wrong' } }).expect(200);
+    expect(wrong.body.data.completed).toBe(false);
+    const completed = await agent.post('/api/labs/broken-access-control/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' } }).expect(200);
+    expect(completed.body.data).toMatchObject({ completed: true, progress: { status: 'COMPLETED' }, session: { status: 'COMPLETED' } });
     expect(await prisma.labProgress.count({ where: { labId: lab.id, status: 'COMPLETED' } })).toBe(1);
   });
 
