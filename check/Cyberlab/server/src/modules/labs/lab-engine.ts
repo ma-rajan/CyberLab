@@ -59,6 +59,7 @@ for (const definition of [
   createFlagDefinition('IDOR_PROFILE_ACCESS', 'Correct completion value. Profile Access is complete.'),
   createFlagDefinition('AUTHENTICATION_BYPASS', 'Correct completion value. Authentication Bypass is complete.'),
   createFlagDefinition('BROKEN_FUNCTION_ACCESS', 'Correct completion value. Broken Function-Level Authorization is complete.'),
+  createFlagDefinition('SSRF_MOCK_FETCH', 'Correct completion value. Server-Side Request Forgery is complete.'),
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {

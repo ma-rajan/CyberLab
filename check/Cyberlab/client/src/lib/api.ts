@@ -76,6 +76,12 @@ export interface ApiTrainingReport {
   summary: string;
   completionToken: string | null;
 }
+export interface ApiMockFetchResponse {
+  path: string;
+  status: string;
+  message: string;
+  completionToken: string | null;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -175,6 +181,10 @@ export const api = {
   trainingReport: (slug: string, section: 'overview' | 'admin-audit') =>
     request<ApiTrainingReport>(
       `/api/labs/${encodeURIComponent(slug)}/target/report?section=${encodeURIComponent(section)}`,
+    ),
+  fetchMockResource: (slug: string, url: string) =>
+    request<ApiMockFetchResponse>(
+      `/api/labs/${encodeURIComponent(slug)}/fetch?url=${encodeURIComponent(url)}`,
     ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),

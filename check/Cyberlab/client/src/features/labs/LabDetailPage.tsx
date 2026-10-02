@@ -10,6 +10,7 @@ import {
   type ApiTrainingProfile,
   type ApiTrainingLoginResult,
   type ApiTrainingReport,
+  type ApiMockFetchResponse,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, progressLabel } from './lab-ui';
 
@@ -33,6 +34,8 @@ export function LabDetailPage() {
   const [trainingLoginResult, setTrainingLoginResult] = useState<ApiTrainingLoginResult | null>(null);
   const [reportSection, setReportSection] = useState<'overview' | 'admin-audit'>('overview');
   const [trainingReport, setTrainingReport] = useState<ApiTrainingReport | null>(null);
+  const [mockUrl, setMockUrl] = useState('/public/status');
+  const [mockFetchResponse, setMockFetchResponse] = useState<ApiMockFetchResponse | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,7 +88,7 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS'
+          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH'
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -150,6 +153,14 @@ export function LabDetailPage() {
     try {
       setTrainingReport(await api.trainingReport(slug, reportSection));
     } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to load the training workspace.'); }
+    finally { setIsSubmitting(false); }
+  }
+
+  async function fetchMockResource(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setMockFetchResponse(null); setIsSubmitting(true);
+    try {
+      setMockFetchResponse(await api.fetchMockResource(slug, mockUrl));
+    } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to fetch the mock target.'); }
     finally { setIsSubmitting(false); }
   }
 
@@ -350,10 +361,21 @@ export function LabDetailPage() {
             {trainingReport && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-medium text-slate-100">{trainingReport.title}</p><p className="mt-1 text-slate-400">{trainingReport.summary}</p>{trainingReport.completionToken && <p className="mt-3 text-signal">Administrator function accessed. Completion value: <code>{trainingReport.completionToken}</code></p>}</div>}
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'SSRF_MOCK_FETCH' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Mock Fetch Service target</h2>
+            <p className="mt-1 text-sm text-slate-400">This target dispatches only to fixed in-memory mock paths. It does not make network requests.</p>
+            <form onSubmit={fetchMockResource} className="mt-4 flex flex-wrap gap-3">
+              <input aria-label="Mock target URL" value={mockUrl} onChange={(event) => setMockUrl(event.target.value)} className="min-w-52 flex-1 rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white outline-none focus:border-cyber" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Fetch Mock Resource</button>
+            </form>
+            {mockFetchResponse && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-mono text-signal">{mockFetchResponse.path} — {mockFetchResponse.status}</p><p className="mt-1 text-slate-400">{mockFetchResponse.message}</p>{mockFetchResponse.completionToken && <p className="mt-3 text-signal">Internal mock resource accessed. Completion value: <code>{mockFetchResponse.completionToken}</code></p>}</div>}
+          </div>
+        )}
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS'
+              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH'
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -362,7 +384,7 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS'
+                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH'
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }
