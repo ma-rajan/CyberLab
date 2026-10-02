@@ -115,6 +115,17 @@ async function createSsrfChallenge(isPublished = true) {
   });
 }
 
+async function createSqliChallenge(isPublished = true) {
+  return prisma.lab.create({ data: {
+    slug: 'sqli', title: 'SQL Injection', description: 'Mock user directory challenge.',
+    category: 'INJECTION', difficulty: 'BEGINNER', estimatedMinutes: 25, points: 100, isPublished,
+    objective: 'Understand unsafe query construction.', instructions: 'Use Mock User Directory.',
+    hints: JSON.stringify(['Search for alice.', 'Inspect the preview.']), target: 'Mock User Directory',
+    challengeType: 'SQLI_USER_DIRECTORY', validatorType: 'FLAG',
+    flagHash: await bcrypt.hash('SQLI_DIRECTORY_ACCESS_CONFIRMED', 12),
+  } });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }
@@ -257,6 +268,16 @@ describe('lab API', () => {
     expect(JSON.stringify(response.body)).not.toContain('SSRF_INTERNAL_CONFIG_CONFIRMED');
     await prisma.lab.update({ where: { slug: 'ssrf' }, data: { isPublished: false } });
     await request(app).get('/api/labs/ssrf').expect(404);
+  });
+
+  it('returns published SQLi metadata without private validator data and hides drafts', async () => {
+    await createSqliChallenge();
+    const response = await request(app).get('/api/labs/sqli').expect(200);
+    expect(response.body.data.lab).toMatchObject({ title: 'SQL Injection', challengeType: 'SQLI_USER_DIRECTORY' });
+    expect(JSON.stringify(response.body)).not.toContain('flagHash');
+    expect(JSON.stringify(response.body)).not.toContain('SQLI_DIRECTORY_ACCESS_CONFIRMED');
+    await prisma.lab.update({ where: { slug: 'sqli' }, data: { isPublished: false } });
+    await request(app).get('/api/labs/sqli').expect(404);
   });
 
   it('requires authentication for progress actions', async () => {
@@ -621,6 +642,41 @@ describe('lab API', () => {
     const wrong = await agent.post('/api/labs/ssrf/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'wrong' } }).expect(200);
     expect(wrong.body.data.completed).toBe(false);
     const completed = await agent.post('/api/labs/ssrf/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'SSRF_INTERNAL_CONFIG_CONFIRMED' } }).expect(200);
+    expect(completed.body.data).toMatchObject({ completed: true, progress: { status: 'COMPLETED' }, session: { status: 'COMPLETED' } });
+    expect(await prisma.labProgress.count({ where: { labId: lab.id, status: 'COMPLETED' } })).toBe(1);
+  });
+
+  it('isolates the SQLi directory target behind authentication and an owned lab session', async () => {
+    await createSqliChallenge();
+    await request(app).get('/api/labs/sqli/search?q=alice').expect(401);
+    const { agent, token } = await authenticatedAgent('platform_learner', 'learner@example.test');
+    await agent.get('/api/labs/sqli/search?q=alice').expect(404);
+    await agent.post('/api/labs/sqli/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const normal = await agent.get('/api/labs/sqli/search?q=alice').expect(200);
+    expect(normal.body.data.records).toEqual([{ id: 1, username: 'alice', role: 'student' }]);
+    expect(JSON.stringify(normal.body)).not.toContain('SQLI_DIRECTORY_ACCESS_CONFIRMED');
+    const injected = await agent.get('/api/labs/sqli/search').query({ q: "alice' OR '1'='1" }).expect(200);
+    expect(injected.body.data.records).toEqual(expect.arrayContaining([expect.objectContaining({ username: 'auditor', role: 'admin', status: 'internal-review', flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' })]));
+    expect(JSON.stringify(injected.body)).not.toContain('platform_learner');
+    expect(JSON.stringify(injected.body)).not.toContain('DATABASE_URL');
+  });
+
+  it('rejects unsupported SQL constructs in the SQLi directory target', async () => {
+    await createSqliChallenge();
+    const { agent, token } = await authenticatedAgent('learner', 'learner@example.test');
+    await agent.post('/api/labs/sqli/start').set('X-CSRF-Token', token).send({}).expect(200);
+    for (const q of ['alice; DROP TABLE users', 'UNION SELECT * FROM users', 'alice -- comment', 'PRAGMA database_list']) {
+      await agent.get('/api/labs/sqli/search').query({ q }).expect(400);
+    }
+  });
+
+  it('uses the existing validator and completion flow for the SQLi challenge', async () => {
+    const lab = await createSqliChallenge();
+    const { agent, token } = await authenticatedAgent('learner', 'learner@example.test');
+    await agent.post('/api/labs/sqli/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const wrong = await agent.post('/api/labs/sqli/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'wrong' } }).expect(200);
+    expect(wrong.body.data.completed).toBe(false);
+    const completed = await agent.post('/api/labs/sqli/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' } }).expect(200);
     expect(completed.body.data).toMatchObject({ completed: true, progress: { status: 'COMPLETED' }, session: { status: 'COMPLETED' } });
     expect(await prisma.labProgress.count({ where: { labId: lab.id, status: 'COMPLETED' } })).toBe(1);
   });

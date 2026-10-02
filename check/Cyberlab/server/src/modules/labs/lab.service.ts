@@ -8,6 +8,7 @@ import { getTrainingProfile } from './isolated-targets/profile-access.target.js'
 import { attemptTrainingLogin } from './isolated-targets/authentication-bypass.target.js';
 import { getTrainingReport } from './isolated-targets/admin-report.target.js';
 import { fetchMockResource, type MockTargetPath } from './isolated-targets/mock-fetch.target.js';
+import { searchMockDirectory } from './isolated-targets/user-directory.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -113,5 +114,13 @@ export const labService = {
     if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
     await labRepository.touchSession(userId, lab.id);
     return fetchMockResource(path);
+  },
+  async searchDirectoryTarget(userId: string, slug: string, query: string) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'SQLI_USER_DIRECTORY') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id);
+    return searchMockDirectory(query);
   },
 };

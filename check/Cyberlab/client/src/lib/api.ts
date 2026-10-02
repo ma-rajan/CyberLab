@@ -82,6 +82,13 @@ export interface ApiMockFetchResponse {
   message: string;
   completionToken: string | null;
 }
+export interface ApiDirectoryRecord {
+  id: number;
+  username: string;
+  role: string;
+  status?: string;
+  flag?: string;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -185,6 +192,10 @@ export const api = {
   fetchMockResource: (slug: string, url: string) =>
     request<ApiMockFetchResponse>(
       `/api/labs/${encodeURIComponent(slug)}/fetch?url=${encodeURIComponent(url)}`,
+    ),
+  searchDirectory: (slug: string, query: string) =>
+    request<{ queryPreview: string; records: ApiDirectoryRecord[] }>(
+      `/api/labs/${encodeURIComponent(slug)}/search?q=${encodeURIComponent(query)}`,
     ),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),

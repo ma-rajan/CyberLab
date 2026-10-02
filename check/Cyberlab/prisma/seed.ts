@@ -10,6 +10,7 @@ async function main() {
   const authenticationBypassFlagHash = await bcrypt.hash('AUTH_BYPASS_CONFIRMED', 12);
   const brokenFunctionAccessFlagHash = await bcrypt.hash('BROKEN_FUNCTION_ACCESS_CONFIRMED', 12);
   const ssrfFlagHash = await bcrypt.hash('SSRF_INTERNAL_CONFIG_CONFIRMED', 12);
+  const sqliFlagHash = await bcrypt.hash('SQLI_DIRECTORY_ACCESS_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -17,6 +18,21 @@ async function main() {
   });
 
   const labs = [
+    {
+      slug: 'sqli', title: 'SQL Injection',
+      description: 'Investigate a synthetic user directory that builds its lookup condition unsafely.',
+      category: 'INJECTION' as const, difficulty: 'BEGINNER' as const, estimatedMinutes: 25, points: 100,
+      isPublished: true,
+      objective: 'Recognize how unsafe string-based query construction can let input change intended query logic.',
+      instructions: 'Start the lab and search for a public synthetic user first. Then observe how a controlled boolean-style input changes the mock query result. This target is an in-memory evaluator only; it never executes SQL. Submit the completion value from the protected synthetic record.',
+      target: 'Mock User Directory — GET /api/labs/sqli/search?q=<query>',
+      challengeType: 'SQLI_USER_DIRECTORY', validatorType: 'FLAG', flagHash: sqliFlagHash,
+      hints: JSON.stringify([
+        'Begin with a public username such as alice.',
+        'Inspect how the supplied value appears in the query preview.',
+        'Consider whether a quoted boolean condition can make the simulated comparison always true.',
+      ]),
+    },
     {
       slug: 'ssrf',
       title: 'Server-Side Request Forgery',
