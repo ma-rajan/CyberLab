@@ -30,6 +30,7 @@ const { api } = vi.hoisted(() => ({
     searchFeedback: vi.fn(),
     trainingProfile: vi.fn(),
     trainingLogin: vi.fn(),
+    trainingReport: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -115,6 +116,7 @@ beforeEach(() => {
     completionToken: 'IDOR_PROFILE_ACCESS_CONFIRMED',
   });
   api.trainingLogin.mockResolvedValue({ authenticated: true, role: 'learner', message: 'Synthetic training target accepted the login attempt.', completionToken: 'AUTH_BYPASS_CONFIRMED' });
+  api.trainingReport.mockResolvedValue({ section: 'admin-audit', title: 'Administrator audit report', summary: 'Synthetic audit data.', completionToken: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -219,5 +221,20 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'AUTH_BYPASS_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('authentication-bypass-basics', { flag: 'AUTH_BYPASS_CONFIRMED' }));
+  });
+
+  it('renders the isolated function authorization target and submits its completion value', async () => {
+    const accessLab = { ...lab, slug: 'broken-access-control', title: 'Broken Function-Level Authorization', category: 'ACCESS_CONTROL' as const, challengeType: 'BROKEN_FUNCTION_ACCESS' };
+    api.lab.mockResolvedValue({ lab: accessLab });
+    render(<MemoryRouter initialEntries={['/labs/broken-access-control']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Broken Function-Level Authorization' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.change(await screen.findByLabelText('Workspace section'), { target: { value: 'admin-audit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open Section' }));
+    await waitFor(() => expect(api.trainingReport).toHaveBeenCalledWith('broken-access-control', 'admin-audit'));
+    expect(await screen.findByText(/BROKEN_FUNCTION_ACCESS_CONFIRMED/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('broken-access-control', { flag: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' }));
   });
 });

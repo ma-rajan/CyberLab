@@ -27,6 +27,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 6 — Isolated XSS Challenge    | ✅ Completed |
 | Phase 7 — Isolated IDOR Challenge   | ✅ Completed |
 | Phase 8 — Isolated Authentication Challenge | ✅ Completed |
+| Phase 9 — Isolated Function Authorization Challenge | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -100,6 +101,7 @@ Secure CyberLab Platform
 │   │   ├── Feedback Search XSS target (sandboxed document)
 │   │   ├── Profile Access IDOR target (fixed synthetic profiles)
 │   │   ├── Training Login authentication target (fixed synthetic account)
+│   │   ├── Training Workspace function-authorization target (fixed synthetic reports)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -154,6 +156,17 @@ bypass, and the existing bcrypt-backed server validator records completion.
 
 Hints guide learners from observing the login decision, to testing unexpected values, to reasoning
 about the flawed condition without disclosing the training flag in metadata or documentation.
+
+## Phase 9 — Isolated Function Authorization Challenge
+
+The existing `broken-access-control` catalog entry is now **Broken Function-Level Authorization**.
+After a learner starts their own lab session, Training Workspace is available at
+`GET /api/labs/broken-access-control/target/report?section=<section>`. The fixed in-memory target
+deliberately omits an administrator-role check for `section=admin-audit`, illustrating a
+function-level authorization failure. It uses no CyberLab users, roles, database records, or
+platform-session state beyond the session gate that protects the lab itself. The target returns a
+non-secret completion value only after the intended synthetic interaction, and the existing
+bcrypt-backed validator records completion.
 
 ## Setup
 
