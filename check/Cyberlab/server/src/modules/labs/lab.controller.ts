@@ -1,7 +1,8 @@
 import type { RequestHandler } from 'express';
 import { AppError } from '../auth/auth.errors.js';
 import { labService } from './lab.service.js';
-import { emptyBodySchema, feedbackSearchSchema, productSearchSchema, profileAccessSchema, slugSchema, submissionSchema, trainingLoginSchema, trainingReportSchema } from './lab.validators.js';
+import { emptyBodySchema, feedbackSearchSchema, mockFetchSchema, productSearchSchema, profileAccessSchema, slugSchema, submissionSchema, trainingLoginSchema, trainingReportSchema } from './lab.validators.js';
+import { parseMockTargetPath } from './isolated-targets/mock-fetch.target.js';
 
 function parseSlug(value: unknown) { const result = slugSchema.safeParse(value); if (!result.success) throw new AppError(400, 'VALIDATION_ERROR', 'Invalid lab slug.'); return result.data; }
 function parseEmptyBody(value: unknown) { if (!emptyBodySchema.safeParse(value).success) throw new AppError(400, 'VALIDATION_ERROR', 'This request does not accept body fields.'); }
@@ -11,6 +12,7 @@ function parseFeedbackSearch(value: unknown) { const result = feedbackSearchSche
 function parseProfileAccess(value: unknown) { const result = profileAccessSchema.safeParse(value); if (!result.success) throw new AppError(400, 'VALIDATION_ERROR', 'Profile ID must be a valid training profile identifier.'); return result.data.id; }
 function parseTrainingLogin(value: unknown) { const result = trainingLoginSchema.safeParse(value); if (!result.success) throw new AppError(400, 'VALIDATION_ERROR', 'Training username and password must be valid strings.'); return result.data; }
 function parseTrainingReport(value: unknown) { const result = trainingReportSchema.safeParse(value); if (!result.success) throw new AppError(400, 'VALIDATION_ERROR', 'Section must be a valid training workspace section.'); return result.data.section; }
+function parseMockFetch(value: unknown) { const result = mockFetchSchema.safeParse(value); if (!result.success) throw new AppError(400, 'VALIDATION_ERROR', 'A mock target path is required.'); const path = parseMockTargetPath(result.data.url); if (!path) throw new AppError(400, 'VALIDATION_ERROR', 'Only predefined in-memory mock paths are allowed.'); return path; }
 
 export const listLabs: RequestHandler = async (_request, response, next) => { try { response.status(200).json({ data: { labs: await labService.listPublishedLabs() } }); } catch (error) { next(error); } };
 export const getLab: RequestHandler = async (request, response, next) => { try { response.status(200).json({ data: { lab: await labService.getPublishedLab(parseSlug(request.params.slug)) } }); } catch (error) { next(error); } };
@@ -25,3 +27,4 @@ export const searchFeedbackTarget: RequestHandler = async (request, response, ne
 export const getProfileTarget: RequestHandler = async (request, response, next) => { try { const target = await labService.getProfileTarget(request.auth!.id, parseSlug(request.params.slug), parseProfileAccess(request.query)); if (!target) throw new AppError(404, 'PROFILE_NOT_FOUND', 'Training profile not found.'); response.status(200).json({ data: target }); } catch (error) { next(error); } };
 export const loginTrainingTarget: RequestHandler = async (request, response, next) => { try { response.status(200).json({ data: await labService.loginTrainingTarget(request.auth!.id, parseSlug(request.params.slug), parseTrainingLogin(request.body)) }); } catch (error) { next(error); } };
 export const getTrainingReportTarget: RequestHandler = async (request, response, next) => { try { response.status(200).json({ data: await labService.getTrainingReportTarget(request.auth!.id, parseSlug(request.params.slug), parseTrainingReport(request.query)) }); } catch (error) { next(error); } };
+export const fetchMockTarget: RequestHandler = async (request, response, next) => { try { response.status(200).json({ data: await labService.fetchMockTarget(request.auth!.id, parseSlug(request.params.slug), parseMockFetch(request.query)) }); } catch (error) { next(error); } };

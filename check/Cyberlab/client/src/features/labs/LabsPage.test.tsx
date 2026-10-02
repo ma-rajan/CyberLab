@@ -31,6 +31,7 @@ const { api } = vi.hoisted(() => ({
     trainingProfile: vi.fn(),
     trainingLogin: vi.fn(),
     trainingReport: vi.fn(),
+    fetchMockResource: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -117,6 +118,7 @@ beforeEach(() => {
   });
   api.trainingLogin.mockResolvedValue({ authenticated: true, role: 'learner', message: 'Synthetic training target accepted the login attempt.', completionToken: 'AUTH_BYPASS_CONFIRMED' });
   api.trainingReport.mockResolvedValue({ section: 'admin-audit', title: 'Administrator audit report', summary: 'Synthetic audit data.', completionToken: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' });
+  api.fetchMockResource.mockResolvedValue({ path: '/internal/admin-config', status: 'ok', message: 'Synthetic internal configuration loaded.', completionToken: 'SSRF_INTERNAL_CONFIG_CONFIRMED' });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -236,5 +238,24 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('broken-access-control', { flag: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' }));
+  });
+
+  it('renders the isolated mock fetch target, reports rejected input, and submits its completion value', async () => {
+    const ssrfLab = { ...lab, slug: 'ssrf', title: 'Server-Side Request Forgery', category: 'WEB_SECURITY' as const, challengeType: 'SSRF_MOCK_FETCH' };
+    api.lab.mockResolvedValue({ lab: ssrfLab });
+    api.fetchMockResource.mockRejectedValueOnce(new Error('Only predefined in-memory mock paths are allowed.'));
+    render(<MemoryRouter initialEntries={['/labs/ssrf']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Server-Side Request Forgery' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.change(await screen.findByLabelText('Mock target URL'), { target: { value: 'http://localhost:3000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch Mock Resource' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to fetch the mock target.');
+    fireEvent.change(screen.getByLabelText('Mock target URL'), { target: { value: '/internal/admin-config' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch Mock Resource' }));
+    await waitFor(() => expect(api.fetchMockResource).toHaveBeenLastCalledWith('ssrf', '/internal/admin-config'));
+    expect(await screen.findByText(/SSRF_INTERNAL_CONFIG_CONFIRMED/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'SSRF_INTERNAL_CONFIG_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('ssrf', { flag: 'SSRF_INTERNAL_CONFIG_CONFIRMED' }));
   });
 });

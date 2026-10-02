@@ -9,6 +9,7 @@ async function main() {
   const profileAccessFlagHash = await bcrypt.hash('IDOR_PROFILE_ACCESS_CONFIRMED', 12);
   const authenticationBypassFlagHash = await bcrypt.hash('AUTH_BYPASS_CONFIRMED', 12);
   const brokenFunctionAccessFlagHash = await bcrypt.hash('BROKEN_FUNCTION_ACCESS_CONFIRMED', 12);
+  const ssrfFlagHash = await bcrypt.hash('SSRF_INTERNAL_CONFIG_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -16,6 +17,27 @@ async function main() {
   });
 
   const labs = [
+    {
+      slug: 'ssrf',
+      title: 'Server-Side Request Forgery',
+      description: 'Investigate a training fetch service that can reach a protected internal mock resource.',
+      category: 'WEB_SECURITY' as const,
+      difficulty: 'BEGINNER' as const,
+      estimatedMinutes: 25,
+      points: 100,
+      isPublished: true,
+      objective: 'Recognize how server-side fetching can expose internal-only resources without allowlisted destinations.',
+      instructions: 'Start the lab and fetch the public status resource first. Then investigate whether the controlled training fetch service can retrieve the internal administrator configuration path. This target is an in-memory mock environment only and never makes network requests. Submit the completion value returned by the intended training interaction.',
+      target: 'Mock Fetch Service — GET /api/labs/ssrf/fetch?url=<mock-path>',
+      challengeType: 'SSRF_MOCK_FETCH',
+      validatorType: 'FLAG',
+      flagHash: ssrfFlagHash,
+      hints: JSON.stringify([
+        'Begin with the documented public mock path.',
+        'The fetch service resolves only a small, fixed in-memory path map.',
+        'Consider whether an internal configuration path is protected when the server performs the lookup.',
+      ]),
+    },
     {
       slug: 'sql-injection-basics',
       title: 'SQL Injection Basics',

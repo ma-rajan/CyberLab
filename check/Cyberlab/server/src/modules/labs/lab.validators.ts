@@ -42,3 +42,9 @@ export const trainingReportSchema = z
     section: z.enum(['overview', 'admin-audit']).default('overview'),
   })
   .strict();
+
+export const mockFetchSchema = z
+  .object({
+    url: z.string().min(1).max(160),
+  })
+  .strict();

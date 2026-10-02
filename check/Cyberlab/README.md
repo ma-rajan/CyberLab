@@ -28,6 +28,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 7 — Isolated IDOR Challenge   | ✅ Completed |
 | Phase 8 — Isolated Authentication Challenge | ✅ Completed |
 | Phase 9 — Isolated Function Authorization Challenge | ✅ Completed |
+| Phase 10 — Isolated SSRF Challenge | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -102,6 +103,7 @@ Secure CyberLab Platform
 │   │   ├── Profile Access IDOR target (fixed synthetic profiles)
 │   │   ├── Training Login authentication target (fixed synthetic account)
 │   │   ├── Training Workspace function-authorization target (fixed synthetic reports)
+│   │   ├── Mock Fetch SSRF target (fixed in-memory path map)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -167,6 +169,24 @@ function-level authorization failure. It uses no CyberLab users, roles, database
 platform-session state beyond the session gate that protects the lab itself. The target returns a
 non-secret completion value only after the intended synthetic interaction, and the existing
 bcrypt-backed validator records completion.
+
+## Phase 10 — Isolated SSRF Challenge
+
+**Server-Side Request Forgery** is available at
+`GET /api/labs/ssrf/fetch?url=<mock-path>` after the learner starts their own lab session. The
+learning flow starts with `/public/status` and demonstrates how a server-side fetch feature can
+expose `/internal/admin-config` when it omits an authorization check for a protected destination.
+
+This is deliberately not a network proxy: the target uses an exact in-memory allowlist containing
+only those two mock paths. It creates no HTTP client, sockets, DNS lookups, port scans, filesystem
+reads, environment-variable reads, Prisma queries, or requests to host, localhost, LAN, cloud
+metadata, or external services. Scheme URLs, protocol-relative URLs, addresses, hosts, ports, and
+all paths outside the fixed map are rejected. The internal mock response is synthetic and provides
+a non-secret completion value that the existing bcrypt-backed validator verifies.
+
+The server API tests cover authentication/session gates, public and internal mock responses,
+network-like input rejection, data isolation, and successful/failed completion. The frontend test
+covers mock request rendering, rejected-input feedback, and flag submission.
 
 ## Setup
 
