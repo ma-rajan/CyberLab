@@ -1,4 +1,6 @@
 import bcrypt from 'bcryptjs';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../src/app.js';
@@ -126,6 +128,17 @@ async function createSqliChallenge(isPublished = true) {
   } });
 }
 
+async function createFileUploadChallenge(isPublished = true) {
+  return prisma.lab.create({ data: {
+    slug: 'file-upload-validation', title: 'Unrestricted File Upload', description: 'Profile upload challenge.',
+    category: 'WEB_SECURITY', difficulty: 'BEGINNER', estimatedMinutes: 30, points: 125, isPublished,
+    objective: 'Understand server-side upload validation.', instructions: 'Use Profile Image Upload.',
+    hints: JSON.stringify(['Upload a normal image first.']), target: 'Profile Image Upload',
+    challengeType: 'FILE_UPLOAD_VALIDATION', validatorType: 'FILE_UPLOAD',
+    flagHash: await bcrypt.hash('FILE_UPLOAD_MISMATCH_CONFIRMED', 12),
+  } });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }
@@ -161,6 +174,7 @@ beforeEach(async () => {
   await prisma.session.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.user.deleteMany();
+  await fs.rm(path.resolve(process.cwd(), '.lab-storage', 'file-upload'), { recursive: true, force: true });
 });
 
 describe('lab API', () => {
@@ -677,6 +691,51 @@ describe('lab API', () => {
     const wrong = await agent.post('/api/labs/sqli/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'wrong' } }).expect(200);
     expect(wrong.body.data.completed).toBe(false);
     const completed = await agent.post('/api/labs/sqli/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' } }).expect(200);
+    expect(completed.body.data).toMatchObject({ completed: true, progress: { status: 'COMPLETED' }, session: { status: 'COMPLETED' } });
+    expect(await prisma.labProgress.count({ where: { labId: lab.id, status: 'COMPLETED' } })).toBe(1);
+  });
+
+  it('keeps profile uploads isolated, serves normal images only as downloads, and accepts the intended weak-validation mismatch', async () => {
+    await createFileUploadChallenge();
+    await request(app).post('/api/labs/file-upload-validation/target/upload').expect(401);
+    const { agent, token } = await authenticatedAgent('platform_learner', 'learner@example.test');
+    await agent.post('/api/labs/file-upload-validation/target/upload')
+      .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
+      .set('X-Upload-Filename', 'portrait.png').set('X-Upload-Mime-Type', 'image/png')
+      .send(Buffer.from('fixture')).expect(404);
+    await agent.post('/api/labs/file-upload-validation/start').set('X-CSRF-Token', token).send({}).expect(200);
+
+    const normal = await agent.post('/api/labs/file-upload-validation/target/upload')
+      .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
+      .set('X-Upload-Filename', 'portrait.png').set('X-Upload-Mime-Type', 'image/png')
+      .send(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])).expect(200);
+    expect(normal.body.data).toMatchObject({ accepted: true, filename: 'portrait.png', completionToken: null });
+    const normalDownload = await agent.get(`/api/labs/file-upload-validation/target/files/${normal.body.data.id}`).expect(200);
+    expect(normalDownload.headers['content-type']).toContain('application/octet-stream');
+    expect(normalDownload.headers['content-disposition']).toContain('attachment');
+    expect(normalDownload.headers['x-content-type-options']).toBe('nosniff');
+    expect(normalDownload.body).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+
+    const mismatch = await agent.post('/api/labs/file-upload-validation/target/upload')
+      .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
+      .set('X-Upload-Filename', 'notes.png').set('X-Upload-Mime-Type', 'image/png')
+      .send(Buffer.from('harmless plain text, never executed')).expect(200);
+    expect(mismatch.body.data).toMatchObject({ accepted: true, filename: 'notes.png', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
+    expect(JSON.stringify(mismatch.body)).not.toContain('platform_learner');
+    await agent.get('/api/labs/file-upload-validation/target/files/../../package.json').expect(404);
+  });
+
+  it('validates File Upload only after the intended mismatched target interaction', async () => {
+    const lab = await createFileUploadChallenge();
+    const { agent, token } = await authenticatedAgent('learner', 'learner@example.test');
+    await agent.post('/api/labs/file-upload-validation/start').set('X-CSRF-Token', token).send({}).expect(200);
+    const premature = await agent.post('/api/labs/file-upload-validation/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'FILE_UPLOAD_MISMATCH_CONFIRMED' } }).expect(200);
+    expect(premature.body.data.completed).toBe(false);
+    await agent.post('/api/labs/file-upload-validation/target/upload')
+      .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
+      .set('X-Upload-Filename', 'proof.gif').set('X-Upload-Mime-Type', 'image/gif')
+      .send(Buffer.from('safe text fixture')).expect(200);
+    const completed = await agent.post('/api/labs/file-upload-validation/submit').set('X-CSRF-Token', token).send({ submission: { flag: 'FILE_UPLOAD_MISMATCH_CONFIRMED' } }).expect(200);
     expect(completed.body.data).toMatchObject({ completed: true, progress: { status: 'COMPLETED' }, session: { status: 'COMPLETED' } });
     expect(await prisma.labProgress.count({ where: { labId: lab.id, status: 'COMPLETED' } })).toBe(1);
   });

@@ -12,6 +12,7 @@ import {
   type ApiTrainingReport,
   type ApiMockFetchResponse,
   type ApiDirectoryRecord,
+  type ApiProfileUploadResult,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, progressLabel } from './lab-ui';
 
@@ -40,6 +41,8 @@ export function LabDetailPage() {
   const [directoryQuery, setDirectoryQuery] = useState('alice');
   const [directoryPreview, setDirectoryPreview] = useState<string | null>(null);
   const [directoryRecords, setDirectoryRecords] = useState<ApiDirectoryRecord[] | null>(null);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profileUploadResult, setProfileUploadResult] = useState<ApiProfileUploadResult | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,7 +95,7 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH' || lab?.challengeType === 'SQLI_USER_DIRECTORY'
+          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH' || lab?.challengeType === 'SQLI_USER_DIRECTORY' || lab?.challengeType === 'FILE_UPLOAD_VALIDATION'
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -174,6 +177,15 @@ export function LabDetailPage() {
       const response = await api.searchDirectory(slug, directoryQuery);
       setDirectoryPreview(response.queryPreview); setDirectoryRecords(response.records);
     } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to search the mock directory.'); }
+    finally { setIsSubmitting(false); }
+  }
+
+  async function uploadProfileImage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setProfileUploadResult(null);
+    if (!profileImage) { setError('Choose a file to upload to the training target.'); return; }
+    setIsSubmitting(true);
+    try { setProfileUploadResult(await api.uploadProfileImage(slug, profileImage)); }
+    catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to upload to the training target.'); }
     finally { setIsSubmitting(false); }
   }
 
@@ -397,10 +409,21 @@ export function LabDetailPage() {
             {directoryRecords && <ul className="mt-4 space-y-2">{directoryRecords.map((record) => <li key={record.id} className="rounded border border-slate-800 p-3 text-sm"><p className="font-medium text-slate-100">{record.username} <span className="text-signal">#{record.id}</span></p><p className="mt-1 text-slate-400">{record.role}{record.status ? ` — ${record.status}` : ''}</p>{record.flag && <p className="mt-2 text-signal">Completion value: <code>{record.flag}</code></p>}</li>)}</ul>}
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'FILE_UPLOAD_VALIDATION' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Profile Image Upload target</h2>
+            <p className="mt-1 text-sm text-slate-400">The browser picker is convenience only. This isolated target stores bytes separately and always serves them as downloads, never executable content.</p>
+            <form onSubmit={uploadProfileImage} className="mt-4 flex flex-wrap gap-3">
+              <input aria-label="Profile image file" type="file" accept="image/png,image/jpeg,image/gif" onChange={(event) => setProfileImage(event.target.files?.[0] ?? null)} className="min-w-52 flex-1 rounded-md border border-slate-700 bg-ink px-3 py-2 text-sm text-slate-300 file:mr-3 file:border-0 file:bg-cyan-950 file:px-3 file:py-1 file:text-cyber" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Upload Profile Image</button>
+            </form>
+            {profileUploadResult && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="text-slate-300">{profileUploadResult.message}</p>{profileUploadResult.accepted && <p className="mt-1 font-mono text-signal">Stored: {profileUploadResult.filename} ({profileUploadResult.declaredMimeType})</p>}{profileUploadResult.completionToken && <p className="mt-3 text-signal">Mismatched content accepted. Completion value: <code>{profileUploadResult.completionToken}</code></p>}</div>}
+          </div>
+        )}
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY'
+              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION'
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -409,7 +432,7 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY'
+                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION'
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }

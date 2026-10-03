@@ -54,3 +54,5 @@ export const directorySearchSchema = z
     q: z.string().min(1).max(120),
   })
   .strict();
+
+export const uploadHeadersSchema = z.object({ filename: z.string().min(1).max(120), mimeType: z.string().min(1).max(80) }).strict();

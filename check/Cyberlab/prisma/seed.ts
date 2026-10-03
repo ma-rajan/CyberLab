@@ -11,6 +11,7 @@ async function main() {
   const brokenFunctionAccessFlagHash = await bcrypt.hash('BROKEN_FUNCTION_ACCESS_CONFIRMED', 12);
   const ssrfFlagHash = await bcrypt.hash('SSRF_INTERNAL_CONFIG_CONFIRMED', 12);
   const sqliFlagHash = await bcrypt.hash('SQLI_DIRECTORY_ACCESS_CONFIRMED', 12);
+  const fileUploadFlagHash = await bcrypt.hash('FILE_UPLOAD_MISMATCH_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -18,6 +19,21 @@ async function main() {
   });
 
   const labs = [
+    {
+      slug: 'file-upload-validation', title: 'Unrestricted File Upload',
+      description: 'Investigate a profile-image target that trusts weak client-controlled upload metadata.',
+      category: 'WEB_SECURITY' as const, difficulty: 'BEGINNER' as const, estimatedMinutes: 30, points: 125,
+      isPublished: true,
+      objective: 'Recognize why client restrictions, filename extensions, and supplied MIME types cannot replace server-side file validation.',
+      instructions: 'Start the lab and upload a normal image first. Then inspect the request and test whether the isolated target accepts harmless plain text when it is presented with an image filename and client-declared image MIME type. Downloaded target files are always attachments and are never executed. Submit the completion value returned after the intended training interaction.',
+      target: 'Profile Image Upload — POST /api/labs/file-upload-validation/target/upload (application/octet-stream with X-Upload-Filename and X-Upload-Mime-Type headers)',
+      challengeType: 'FILE_UPLOAD_VALIDATION', validatorType: 'FILE_UPLOAD', flagHash: fileUploadFlagHash,
+      hints: JSON.stringify([
+        'Use the browser control to observe a normal upload first.',
+        'The server checks only values the client can claim: filename extension and MIME type.',
+        'Try harmless plain text bytes while retaining an accepted image filename and declared MIME type.',
+      ]),
+    },
     {
       slug: 'sqli', title: 'SQL Injection',
       description: 'Investigate a synthetic user directory that builds its lookup condition unsafely.',

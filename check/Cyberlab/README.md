@@ -30,6 +30,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 9 — Isolated Function Authorization Challenge | ✅ Completed |
 | Phase 10 — Isolated SSRF Challenge | ✅ Completed |
 | Phase 11 — Isolated SQL Injection Challenge | ✅ Completed |
+| Phase 12 — Isolated File Upload Validation Challenge | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -207,6 +208,22 @@ training completion value, which the existing bcrypt-backed validator verifies.
 Server tests cover access gates, normal and controlled-injection responses, unsupported-input
 rejection, data isolation, metadata privacy, and completion. The frontend test covers query entry,
 response rendering, rejected-input feedback, and flag submission.
+
+## Phase 12 — Isolated File Upload Validation Challenge
+
+**Unrestricted File Upload** is available after starting the lab at
+`POST /api/labs/file-upload-validation/target/upload`. The target accepts bounded raw bytes with
+`X-Upload-Filename` and `X-Upload-Mime-Type` request headers, making the client-controlled metadata
+visible for inspection. `GET /api/labs/file-upload-validation/target/files/:filename` retrieves a
+stored training upload.
+
+The isolated target deliberately makes its acceptance decision from the claimed image extension and
+MIME type, so harmless text presented as an image can demonstrate the weakness. It stores uploads
+only beneath a target-specific lab-storage directory, uses generated identifiers rather than client
+paths, rejects path traversal, and never executes, parses, renders, or serves content with the
+claimed MIME type. Every retrieval is a `nosniff` attachment with an octet-stream content type.
+The dedicated validator requires both the existing bcrypt-backed completion value and a verified
+mismatched upload owned by the learner, so guessing the value alone cannot complete the lab.
 
 ## Setup
 
