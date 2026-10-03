@@ -89,6 +89,15 @@ export interface ApiDirectoryRecord {
   status?: string;
   flag?: string;
 }
+export interface ApiProfileUploadResult {
+  accepted: boolean;
+  id?: string;
+  filename?: string;
+  declaredMimeType?: string;
+  downloadPath?: string;
+  message: string;
+  completionToken: string | null;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -134,6 +143,19 @@ async function authPost<T>(path: string, body: Record<string, unknown>): Promise
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
     body: JSON.stringify(body),
+  });
+}
+async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const token = await getCsrfToken();
+  return request<T>(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'X-CSRF-Token': token,
+      'X-Upload-Filename': file.name,
+      'X-Upload-Mime-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
   });
 }
 export const api = {
@@ -197,6 +219,8 @@ export const api = {
     request<{ queryPreview: string; records: ApiDirectoryRecord[] }>(
       `/api/labs/${encodeURIComponent(slug)}/search?q=${encodeURIComponent(query)}`,
     ),
+  uploadProfileImage: (slug: string, file: File) =>
+    uploadFile<ApiProfileUploadResult>(`/api/labs/${encodeURIComponent(slug)}/target/upload`, file),
   completeLab: (slug: string) =>
     authPost<{ progress: ApiLabProgress }>(`/api/labs/${encodeURIComponent(slug)}/complete`, {}),
 };

@@ -9,6 +9,7 @@ import { attemptTrainingLogin } from './isolated-targets/authentication-bypass.t
 import { getTrainingReport } from './isolated-targets/admin-report.target.js';
 import { fetchMockResource, type MockTargetPath } from './isolated-targets/mock-fetch.target.js';
 import { searchMockDirectory } from './isolated-targets/user-directory.target.js';
+import { readTrainingUpload, uploadTrainingProfileImage } from './isolated-targets/file-upload.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -52,6 +53,7 @@ export const labService = {
     const result = await getLabDefinition(lab.challengeType).validate(submission, {
       validatorType: lab.validatorType,
       flagHash: lab.flagHash,
+      userId,
     });
     if (result.completed) {
       const completedSession = await labRepository.completeSession(userId, lab.id);
@@ -122,5 +124,21 @@ export const labService = {
     if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
     await labRepository.touchSession(userId, lab.id);
     return searchMockDirectory(query);
+  },
+  async uploadProfileImageTarget(userId: string, slug: string, upload: { filename: string; mimeType: string; content: Buffer }) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'FILE_UPLOAD_VALIDATION') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id);
+    return uploadTrainingProfileImage(userId, upload.filename, upload.mimeType, upload.content);
+  },
+  async getProfileUploadTarget(userId: string, slug: string, uploadId: string) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'FILE_UPLOAD_VALIDATION') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id);
+    return readTrainingUpload(userId, uploadId);
   },
 };

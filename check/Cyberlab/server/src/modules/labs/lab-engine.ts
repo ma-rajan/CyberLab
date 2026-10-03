@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { hasMismatchedTrainingUpload } from './isolated-targets/file-upload.target.js';
 
 export interface LabValidationResult {
   success: boolean;
@@ -17,6 +18,7 @@ export interface LabDefinition {
 export interface LabValidationContext {
   validatorType: string;
   flagHash: string | null;
+  userId: string;
 }
 
 // Validators receive data only and never evaluate it as code, SQL, a shell command, or JavaScript.
@@ -53,6 +55,15 @@ function createFlagDefinition(challengeType: string, successMessage: string): La
 }
 
 const definitions = new Map<string, LabDefinition>();
+const fileUploadDefinition: LabDefinition = {
+  challengeType: 'FILE_UPLOAD_VALIDATION',
+  validate: async (submission, context) => {
+    const flag = typeof submission.flag === 'string' ? submission.flag : '';
+    const accepted = context.validatorType === 'FILE_UPLOAD' && Boolean(context.flagHash) &&
+      await bcrypt.compare(flag, context.flagHash!) && await hasMismatchedTrainingUpload(context.userId);
+    return { success: accepted, completed: accepted, message: accepted ? 'Correct flag and verified mismatched upload. File Upload Validation is complete.' : 'Submit the completion value only after the isolated target accepts a mismatched upload.' };
+  },
+};
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
@@ -61,6 +72,7 @@ for (const definition of [
   createFlagDefinition('BROKEN_FUNCTION_ACCESS', 'Correct completion value. Broken Function-Level Authorization is complete.'),
   createFlagDefinition('SSRF_MOCK_FETCH', 'Correct completion value. Server-Side Request Forgery is complete.'),
   createFlagDefinition('SQLI_USER_DIRECTORY', 'Correct completion value. SQL Injection is complete.'),
+  fileUploadDefinition,
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {

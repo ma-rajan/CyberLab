@@ -33,6 +33,7 @@ const { api } = vi.hoisted(() => ({
     trainingReport: vi.fn(),
     fetchMockResource: vi.fn(),
     searchDirectory: vi.fn(),
+    uploadProfileImage: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -121,6 +122,7 @@ beforeEach(() => {
   api.trainingReport.mockResolvedValue({ section: 'admin-audit', title: 'Administrator audit report', summary: 'Synthetic audit data.', completionToken: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' });
   api.fetchMockResource.mockResolvedValue({ path: '/internal/admin-config', status: 'ok', message: 'Synthetic internal configuration loaded.', completionToken: 'SSRF_INTERNAL_CONFIG_CONFIRMED' });
   api.searchDirectory.mockResolvedValue({ queryPreview: "SELECT id, username, role FROM mock_users WHERE username = 'alice'", records: [{ id: 3, username: 'auditor', role: 'admin', status: 'internal-review', flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }] });
+  api.uploadProfileImage.mockResolvedValue({ accepted: true, id: 'upload-1', filename: 'notes.png', declaredMimeType: 'image/png', downloadPath: 'upload-1', message: 'Profile image stored by the isolated training target.', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -286,5 +288,21 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('sqli', { flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }));
+  });
+
+  it('renders the isolated profile upload target and submits its verified completion value', async () => {
+    const uploadLab = { ...lab, slug: 'file-upload-validation', title: 'Unrestricted File Upload', category: 'WEB_SECURITY' as const, challengeType: 'FILE_UPLOAD_VALIDATION' };
+    api.lab.mockResolvedValue({ lab: uploadLab });
+    render(<MemoryRouter initialEntries={['/labs/file-upload-validation']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Unrestricted File Upload' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    const file = new File(['harmless plain text'], 'notes.png', { type: 'image/png' });
+    fireEvent.change(await screen.findByLabelText('Profile image file'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Profile Image' }));
+    await waitFor(() => expect(api.uploadProfileImage).toHaveBeenCalledWith('file-upload-validation', file));
+    expect(await screen.findByText(/FILE_UPLOAD_MISMATCH_CONFIRMED/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'FILE_UPLOAD_MISMATCH_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('file-upload-validation', { flag: 'FILE_UPLOAD_MISMATCH_CONFIRMED' }));
   });
 });
