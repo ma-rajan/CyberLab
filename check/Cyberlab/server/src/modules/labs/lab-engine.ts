@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { hasMismatchedTrainingUpload } from './isolated-targets/file-upload.target.js';
+import { hasUnprotectedNotificationChange } from './isolated-targets/csrf-settings.target.js';
 
 export interface LabValidationResult {
   success: boolean;
@@ -64,6 +65,11 @@ const fileUploadDefinition: LabDefinition = {
     return { success: accepted, completed: accepted, message: accepted ? 'Correct flag and verified mismatched upload. File Upload Validation is complete.' : 'Submit the completion value only after the isolated target accepts a mismatched upload.' };
   },
 };
+const csrfDefinition: LabDefinition = { challengeType: 'CSRF', validate: async (submission, context) => {
+  const flag = typeof submission.flag === 'string' ? submission.flag : '';
+  const accepted = context.validatorType === 'CSRF' && Boolean(context.flagHash) && await bcrypt.compare(flag, context.flagHash!) && hasUnprotectedNotificationChange(context.userId);
+  return { success: accepted, completed: accepted, message: accepted ? 'Verified: the isolated victim setting changed without a valid CSRF token. CSRF is complete.' : 'First change the isolated notification setting through the tokenless training request, then submit its completion value.' };
+} };
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
@@ -73,6 +79,7 @@ for (const definition of [
   createFlagDefinition('SSRF_MOCK_FETCH', 'Correct completion value. Server-Side Request Forgery is complete.'),
   createFlagDefinition('SQLI_USER_DIRECTORY', 'Correct completion value. SQL Injection is complete.'),
   fileUploadDefinition,
+  csrfDefinition,
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {

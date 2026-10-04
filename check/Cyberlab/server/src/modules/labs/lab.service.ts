@@ -10,6 +10,7 @@ import { getTrainingReport } from './isolated-targets/admin-report.target.js';
 import { fetchMockResource, type MockTargetPath } from './isolated-targets/mock-fetch.target.js';
 import { searchMockDirectory } from './isolated-targets/user-directory.target.js';
 import { readTrainingUpload, uploadTrainingProfileImage } from './isolated-targets/file-upload.target.js';
+import { getTrainingCsrfSettings, updateTrainingCsrfSettings } from './isolated-targets/csrf-settings.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -140,5 +141,15 @@ export const labService = {
     if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
     await labRepository.touchSession(userId, lab.id);
     return readTrainingUpload(userId, uploadId);
+  },
+  async getCsrfSettingsTarget(userId: string, slug: string) {
+    const lab = await requirePublishedLab(slug); if (lab.challengeType !== 'CSRF') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id); if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id); return getTrainingCsrfSettings(userId);
+  },
+  async updateCsrfSettingsTarget(userId: string, slug: string, notificationsEnabled: boolean, usedValidCsrfToken: boolean) {
+    const lab = await requirePublishedLab(slug); if (lab.challengeType !== 'CSRF') throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    const session = await labRepository.findSession(userId, lab.id); if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    await labRepository.touchSession(userId, lab.id); return updateTrainingCsrfSettings(userId, notificationsEnabled, usedValidCsrfToken);
   },
 };

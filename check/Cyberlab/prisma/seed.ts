@@ -12,6 +12,7 @@ async function main() {
   const ssrfFlagHash = await bcrypt.hash('SSRF_INTERNAL_CONFIG_CONFIRMED', 12);
   const sqliFlagHash = await bcrypt.hash('SQLI_DIRECTORY_ACCESS_CONFIRMED', 12);
   const fileUploadFlagHash = await bcrypt.hash('FILE_UPLOAD_MISMATCH_CONFIRMED', 12);
+  const csrfFlagHash = await bcrypt.hash('CSRF_NOTIFICATION_CHANGE_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -19,6 +20,11 @@ async function main() {
   });
 
   const labs = [
+    { slug: 'csrf', title: 'CSRF', description: 'Investigate a training profile setting that trusts an authenticated browser session without validating a CSRF token.', category: 'WEB_SECURITY' as const, difficulty: 'BEGINNER' as const, estimatedMinutes: 20, points: 100, isPublished: true,
+      objective: 'Change the training victim’s notification setting through a cross-site request simulation without using the normal protected form.',
+      instructions: 'Start the lab and inspect the training victim’s current notification preference. Use the controlled attacker-request simulator to submit a form-style state-changing request without a CSRF token. The target relies on the authenticated session and intentionally accepts the request. This affects only isolated per-lab training state. Submit the completion value once notifications are disabled.',
+      target: 'Training Profile Settings — POST /api/labs/csrf/target/settings (form-style request; intentionally no CSRF validation)', challengeType: 'CSRF', validatorType: 'CSRF', flagHash: csrfFlagHash,
+      hints: JSON.stringify(['Authentication proves who the browser is logged in as; it does not prove who initiated a request.', 'A form-style cross-site request cannot supply an unpredictable custom CSRF header.', 'Production targets should validate an unpredictable CSRF token for state-changing requests; SameSite cookies are an additional defense, and GET should never change state.']), },
     {
       slug: 'file-upload-validation', title: 'Unrestricted File Upload',
       description: 'Investigate a profile-image target that trusts weak client-controlled upload metadata.',

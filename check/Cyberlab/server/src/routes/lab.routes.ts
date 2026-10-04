@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import { attachAuthenticatedUser, requireAuthentication } from '../middleware/authenticate.js';
 import { requireCsrfToken } from '../middleware/csrf.js';
-import { completeLab, fetchMockTarget, getLab, getLabProgress, getProfileTarget, getProfileUploadTarget, getProgress, getSession, getTrainingReportTarget, listLabs, loginTrainingTarget, searchDirectoryTarget, searchFeedbackTarget, searchProductTarget, startLab, submitLab, uploadProfileImageTarget } from '../modules/labs/lab.controller.js';
+import { completeLab, fetchMockTarget, getCsrfSettingsTarget, getLab, getLabProgress, getProfileTarget, getProfileUploadTarget, getProgress, getSession, getTrainingReportTarget, listLabs, loginTrainingTarget, searchDirectoryTarget, searchFeedbackTarget, searchProductTarget, startLab, submitLab, updateCsrfSettingsTarget, uploadProfileImageTarget } from '../modules/labs/lab.controller.js';
 
 export const labRouter = Router();
 
@@ -18,6 +18,10 @@ labRouter.get('/:slug/fetch', requireAuthentication, fetchMockTarget);
 labRouter.get('/:slug/search', requireAuthentication, searchDirectoryTarget);
 labRouter.post('/:slug/target/upload', requireAuthentication, requireCsrfToken, express.raw({ type: 'application/octet-stream', limit: '32kb' }), uploadProfileImageTarget);
 labRouter.get('/:slug/target/files/:filename', requireAuthentication, getProfileUploadTarget);
+labRouter.get('/:slug/target/settings', requireAuthentication, getCsrfSettingsTarget);
+labRouter.post('/:slug/target/settings/secure', requireAuthentication, requireCsrfToken, express.urlencoded({ extended: false }), updateCsrfSettingsTarget);
+// Deliberately unprotected only for the isolated CSRF teaching target.
+labRouter.post('/:slug/target/settings', requireAuthentication, express.urlencoded({ extended: false }), updateCsrfSettingsTarget);
 labRouter.get('/:slug/session', requireAuthentication, getSession);
 labRouter.get('/:slug/progress', requireAuthentication, getLabProgress);
 labRouter.post('/:slug/submit', requireAuthentication, requireCsrfToken, submitLab);

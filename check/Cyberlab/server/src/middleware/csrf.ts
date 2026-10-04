@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
 import { env } from '../config/env.js';
 
 export const CSRF_COOKIE_NAME = 'cyberlab_csrf';
@@ -15,6 +15,10 @@ function tokensMatch(cookieToken: string, headerToken: string) {
   const right = Buffer.from(headerToken);
   return left.length === right.length && timingSafeEqual(left, right);
 }
+export function hasValidCsrfToken(request: Pick<Request, 'cookies' | 'get'>) {
+  const cookieToken = request.cookies?.[CSRF_COOKIE_NAME]; const headerToken = request.get('x-csrf-token');
+  return typeof cookieToken === 'string' && typeof headerToken === 'string' && tokensMatch(cookieToken, headerToken);
+}
 
 export const issueCsrfToken: RequestHandler = (request, response) => {
   const token =
@@ -26,9 +30,7 @@ export const issueCsrfToken: RequestHandler = (request, response) => {
 };
 
 export const requireCsrfToken: RequestHandler = (request, response, next) => {
-  const cookieToken = request.cookies?.[CSRF_COOKIE_NAME];
-  const headerToken = request.get('x-csrf-token');
-  if (typeof cookieToken !== 'string' || !headerToken || !tokensMatch(cookieToken, headerToken)) {
+  if (!hasValidCsrfToken(request)) {
     response.status(403).json({ error: { code: 'CSRF_INVALID', message: 'Invalid CSRF token.' } });
     return;
   }

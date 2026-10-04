@@ -13,6 +13,7 @@ import {
   type ApiMockFetchResponse,
   type ApiDirectoryRecord,
   type ApiProfileUploadResult,
+  type ApiCsrfSettings,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, progressLabel } from './lab-ui';
 
@@ -43,6 +44,7 @@ export function LabDetailPage() {
   const [directoryRecords, setDirectoryRecords] = useState<ApiDirectoryRecord[] | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileUploadResult, setProfileUploadResult] = useState<ApiProfileUploadResult | null>(null);
+  const [csrfSettings, setCsrfSettings] = useState<ApiCsrfSettings | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +61,7 @@ export function LabDetailPage() {
         if (current?.status === 'IN_PROGRESS')
           return api
             .labSession(slug)
-            .then(({ session: currentSession }) => setSession(currentSession));
+            .then(({ session: currentSession }) => { setSession(currentSession); if (labData.lab.challengeType === 'CSRF') return api.csrfSettings(slug).then(setCsrfSettings); return undefined; });
         return undefined;
       })
       .catch((requestError) =>
@@ -77,6 +79,7 @@ export function LabDetailPage() {
       const response = await api.startLab(slug);
       setProgress(response.progress);
       setSession(response.session);
+      if (lab?.challengeType === 'CSRF') setCsrfSettings(await api.csrfSettings(slug));
     } catch (requestError) {
       setError(
         requestError instanceof ApiError ? requestError.message : 'Unable to start this lab.',
@@ -95,7 +98,7 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH' || lab?.challengeType === 'SQLI_USER_DIRECTORY' || lab?.challengeType === 'FILE_UPLOAD_VALIDATION'
+          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH' || lab?.challengeType === 'SQLI_USER_DIRECTORY' || lab?.challengeType === 'FILE_UPLOAD_VALIDATION' || lab?.challengeType === 'CSRF'
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -188,6 +191,8 @@ export function LabDetailPage() {
     catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to upload to the training target.'); }
     finally { setIsSubmitting(false); }
   }
+  async function simulateCsrfNotificationChange() { setError(null); setResult(null); setIsSubmitting(true); try { const updated = await api.simulateCsrfNotificationChange(slug); setCsrfSettings(updated); if (updated.completionToken) setResult('The attacker-request simulator changed the training victim setting without a CSRF token. Submit the completion value below.'); } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to submit the attacker-request simulation.'); } finally { setIsSubmitting(false); } }
+  async function updateCsrfSettingsSecurely() { setError(null); setResult(null); setIsSubmitting(true); try { setCsrfSettings(await api.updateCsrfSettingsSecurely(slug, true)); } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to submit the protected comparison request.'); } finally { setIsSubmitting(false); } }
 
   if (isLoading) return <p className="font-mono text-cyber">Loading lab…</p>;
   if (error && !lab)
@@ -420,10 +425,11 @@ export function LabDetailPage() {
             {profileUploadResult && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="text-slate-300">{profileUploadResult.message}</p>{profileUploadResult.accepted && <p className="mt-1 font-mono text-signal">Stored: {profileUploadResult.filename} ({profileUploadResult.declaredMimeType})</p>}{profileUploadResult.completionToken && <p className="mt-3 text-signal">Mismatched content accepted. Completion value: <code>{profileUploadResult.completionToken}</code></p>}</div>}
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'CSRF' && (<div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5"><h2 className="text-lg font-semibold text-white">Training victim profile</h2><p className="mt-1 text-sm text-slate-400">This is isolated lab state only; it never changes your CyberLab account settings.</p>{csrfSettings ? <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-medium text-slate-100">{csrfSettings.profileName}</p><p className="mt-1 text-slate-300">Email notifications: <span className={csrfSettings.notificationsEnabled ? 'text-signal' : 'text-red-300'}>{csrfSettings.notificationsEnabled ? 'Enabled' : 'Disabled'}</span></p><p className="mt-1 text-slate-500">Last change used a valid CSRF token: {csrfSettings.lastChangeUsedValidCsrfToken ? 'Yes' : 'No'}</p></div> : <p className="mt-4 text-sm text-slate-400">Loading the training victim settings…</p>}<div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={simulateCsrfNotificationChange} disabled={isSubmitting} className="rounded-md border border-red-400/60 px-4 py-2 font-semibold text-red-200 disabled:opacity-60">Run attacker-request simulation</button><button type="button" onClick={updateCsrfSettingsSecurely} disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Reset through protected request</button></div><p className="mt-3 text-xs text-slate-500">The attacker simulation sends a form-style POST without an X-CSRF-Token header. The comparison control uses CyberLab’s normal token-protected request flow.</p>{csrfSettings?.completionToken && <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Unprotected state change detected. Completion value: <code>{csrfSettings.completionToken}</code></p>}</div>)}
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION'
+              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION' || lab.challengeType === 'CSRF'
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -432,7 +438,7 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION'
+                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION' || lab.challengeType === 'CSRF'
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }
