@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +34,9 @@ const { api } = vi.hoisted(() => ({
     fetchMockResource: vi.fn(),
     searchDirectory: vi.fn(),
     uploadProfileImage: vi.fn(),
+    csrfSettings: vi.fn(),
+    simulateCsrfNotificationChange: vi.fn(),
+    updateCsrfSettingsSecurely: vi.fn(),
     completeLab: vi.fn(),
   },
 }));
@@ -123,6 +126,9 @@ beforeEach(() => {
   api.fetchMockResource.mockResolvedValue({ path: '/internal/admin-config', status: 'ok', message: 'Synthetic internal configuration loaded.', completionToken: 'SSRF_INTERNAL_CONFIG_CONFIRMED' });
   api.searchDirectory.mockResolvedValue({ queryPreview: "SELECT id, username, role FROM mock_users WHERE username = 'alice'", records: [{ id: 3, username: 'auditor', role: 'admin', status: 'internal-review', flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }] });
   api.uploadProfileImage.mockResolvedValue({ accepted: true, id: 'upload-1', filename: 'notes.png', declaredMimeType: 'image/png', downloadPath: 'upload-1', message: 'Profile image stored by the isolated training target.', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
+  api.csrfSettings.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: false, completionToken: null });
+  api.updateCsrfSettingsSecurely.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: true, completionToken: null });
+  api.simulateCsrfNotificationChange.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: false, lastChangeUsedValidCsrfToken: false, completionToken: 'CSRF_NOTIFICATION_CHANGE_CONFIRMED' });
   api.completeLab.mockResolvedValue({
     progress: {
       id: 'progress-1',
@@ -304,5 +310,30 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'FILE_UPLOAD_MISMATCH_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('file-upload-validation', { flag: 'FILE_UPLOAD_MISMATCH_CONFIRMED' }));
+  });
+
+  it('renders the CSRF target, compares protected and tokenless changes, and completes with the recorded flag', async () => {
+    const csrfLab = { ...lab, slug: 'csrf', title: 'CSRF', category: 'WEB_SECURITY' as const, challengeType: 'CSRF' };
+    api.lab.mockResolvedValue({ lab: csrfLab });
+    const view = render(<MemoryRouter initialEntries={['/labs/csrf']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'CSRF' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    await waitFor(() => expect(api.csrfSettings).toHaveBeenCalledWith('csrf'));
+    expect(await screen.findByText('Training Victim')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset through protected request' }));
+    await waitFor(() => expect(api.updateCsrfSettingsSecurely).toHaveBeenCalledWith('csrf', true));
+    expect(await screen.findByText(/Last change used a valid CSRF token: Yes/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run attacker-request simulation' }));
+    await waitFor(() => expect(api.simulateCsrfNotificationChange).toHaveBeenCalledWith('csrf'));
+    expect(await screen.findByText(/Unprotected state change detected/)).toBeInTheDocument();
+    expect(screen.getByText(/Last change used a valid CSRF token: No/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'CSRF_NOTIFICATION_CHANGE_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('csrf', { flag: 'CSRF_NOTIFICATION_CHANGE_CONFIRMED' }));
+    expect(await within(view.container).findByText('Completed — 100 points')).toBeInTheDocument();
   });
 });

@@ -31,6 +31,7 @@ is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
 | Phase 10 — Isolated SSRF Challenge | ✅ Completed |
 | Phase 11 — Isolated SQL Injection Challenge | ✅ Completed |
 | Phase 12 — Isolated File Upload Validation Challenge | ✅ Completed |
+| Phase 13 — Isolated CSRF Challenge | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -224,6 +225,22 @@ paths, rejects path traversal, and never executes, parses, renders, or serves co
 claimed MIME type. Every retrieval is a `nosniff` attachment with an octet-stream content type.
 The dedicated validator requires both the existing bcrypt-backed completion value and a verified
 mismatched upload owned by the learner, so guessing the value alone cannot complete the lab.
+
+## Phase 13 — Isolated CSRF Challenge
+
+**CSRF** is available after starting the lab at
+`GET /api/labs/csrf/target/settings`. The training victim setting can be changed through the
+deliberately tokenless, form-style target route
+`POST /api/labs/csrf/target/settings`; the comparison route
+`POST /api/labs/csrf/target/settings/secure` retains CyberLab's normal CSRF-token validation.
+
+The `CSRF` challenge type keeps the exercise bounded to per-user in-memory training settings. Both
+routes require the learner's authenticated CyberLab session and an owned active lab session, but
+only the intentionally vulnerable target route omits CSRF validation. A completion is recorded
+only when the server verifies the bcrypt-backed completion value and confirms that this learner's
+training notification setting was changed without a valid CSRF token. The target never changes
+platform account settings or exposes private validator data through catalog, detail, progress, or
+session APIs.
 
 ## Setup
 
