@@ -708,6 +708,12 @@ describe('lab API', () => {
       .send(Buffer.from('fixture')).expect(404);
     await agent.post('/api/labs/file-upload-validation/start').set('X-CSRF-Token', token).send({}).expect(200);
 
+    const rejected = await agent.post('/api/labs/file-upload-validation/target/upload')
+      .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
+      .set('X-Upload-Filename', 'notes.txt').set('X-Upload-Mime-Type', 'image/png')
+      .send(Buffer.from('harmless plain text')).expect(200);
+    expect(rejected.body.data).toMatchObject({ accepted: false, completionToken: null });
+
     const normal = await agent.post('/api/labs/file-upload-validation/target/upload')
       .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
       .set('X-Upload-Filename', 'portrait.png').set('X-Upload-Mime-Type', 'image/png')
@@ -726,6 +732,10 @@ describe('lab API', () => {
     expect(mismatch.body.data).toMatchObject({ accepted: true, filename: 'notes.png', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
     expect(JSON.stringify(mismatch.body)).not.toContain('platform_learner');
     await agent.get('/api/labs/file-upload-validation/target/files/../../package.json').expect(404);
+
+    const otherLearner = await authenticatedAgent('other_learner', 'other@example.test');
+    await otherLearner.agent.post('/api/labs/file-upload-validation/start').set('X-CSRF-Token', otherLearner.token).send({}).expect(200);
+    await otherLearner.agent.get(`/api/labs/file-upload-validation/target/files/${mismatch.body.data.id}`).expect(404);
   });
 
   it('validates File Upload only after the intended mismatched target interaction', async () => {
