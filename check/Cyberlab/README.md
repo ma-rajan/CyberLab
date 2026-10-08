@@ -226,6 +226,12 @@ claimed MIME type. Every retrieval is a `nosniff` attachment with an octet-strea
 The dedicated validator requires both the existing bcrypt-backed completion value and a verified
 mismatched upload owned by the learner, so guessing the value alone cannot complete the lab.
 
+Server tests cover normal image upload, the accepted harmless content/type mismatch, stored-file
+retrieval, malformed upload requests, learner isolation, path traversal rejection, storage confined
+to the training directory, and validator completion. The frontend test covers file selection,
+upload feedback, and completion submission. Phase 12 verification passed with 58 server tests, 11
+client tests, workspace type-checking, and the production build.
+
 ## Phase 13 — Isolated CSRF Challenge
 
 **CSRF** is available after starting the lab at

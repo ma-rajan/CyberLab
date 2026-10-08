@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import request from 'supertest';
@@ -731,11 +732,42 @@ describe('lab API', () => {
       .send(Buffer.from('harmless plain text, never executed')).expect(200);
     expect(mismatch.body.data).toMatchObject({ accepted: true, filename: 'notes.png', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
     expect(JSON.stringify(mismatch.body)).not.toContain('platform_learner');
+
+    const learner = await prisma.user.findUniqueOrThrow({ where: { username: 'platform_learner' } });
+    const storageRoot = path.resolve(process.cwd(), '.lab-storage', 'file-upload');
+    const learnerDirectory = path.resolve(storageRoot, createHash('sha256').update(learner.id).digest('hex'));
+    const storedPath = path.resolve(learnerDirectory, `${mismatch.body.data.id}.bin`);
+    expect(storedPath.startsWith(`${learnerDirectory}${path.sep}`)).toBe(true);
+    expect(await fs.readFile(storedPath)).toEqual(Buffer.from('harmless plain text, never executed'));
+    expect(await fs.readdir(storageRoot)).toEqual([path.basename(learnerDirectory)]);
     await agent.get('/api/labs/file-upload-validation/target/files/../../package.json').expect(404);
 
     const otherLearner = await authenticatedAgent('other_learner', 'other@example.test');
     await otherLearner.agent.post('/api/labs/file-upload-validation/start').set('X-CSRF-Token', otherLearner.token).send({}).expect(200);
     await otherLearner.agent.get(`/api/labs/file-upload-validation/target/files/${mismatch.body.data.id}`).expect(404);
+  });
+
+  it('rejects malformed upload requests without writing files outside the training directory', async () => {
+    await createFileUploadChallenge();
+    const { agent, token } = await authenticatedAgent('malformed_uploader', 'malformed@example.test');
+    await agent.post('/api/labs/file-upload-validation/start').set('X-CSRF-Token', token).send({}).expect(200);
+
+    await agent.post('/api/labs/file-upload-validation/target/upload')
+      .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
+      .send(Buffer.from('missing metadata')).expect(400);
+    const empty = await agent.post('/api/labs/file-upload-validation/target/upload')
+      .set('X-CSRF-Token', token).set('Content-Type', 'application/octet-stream')
+      .set('X-Upload-Filename', 'empty.png').set('X-Upload-Mime-Type', 'image/png')
+      .send(Buffer.alloc(0)).expect(200);
+    expect(empty.body.data).toMatchObject({ accepted: false, completionToken: null });
+
+    const projectFile = path.resolve(process.cwd(), 'package.json');
+    expect(await fs.readFile(projectFile, 'utf8')).toContain('"name": "@cyberlab/server"');
+    const storageRoot = path.resolve(process.cwd(), '.lab-storage', 'file-upload');
+    const learner = await prisma.user.findUniqueOrThrow({ where: { username: 'malformed_uploader' } });
+    const learnerDirectory = path.resolve(storageRoot, createHash('sha256').update(learner.id).digest('hex'));
+    await expect(fs.access(learnerDirectory)).rejects.toThrow();
+    await expect(fs.access(path.resolve(process.cwd(), 'notes.txt'))).rejects.toThrow();
   });
 
   it('validates File Upload only after the intended mismatched target interaction', async () => {
