@@ -291,6 +291,13 @@ training notification setting was changed without a valid CSRF token. The target
 platform account settings or exposes private validator data through catalog, detail, progress, or
 session APIs.
 
+The lab page's attacker-request simulator models a cross-origin form submission against this local
+target; it does not contact an external site. The protected comparison control uses CyberLab's
+normal CSRF-token flow. Tests cover both request paths, incomplete and incorrect submissions,
+per-learner isolation, and ensuring the CSRF target cannot affect unrelated labs. The frontend test
+covers the local attacker simulation and protected comparison. Verification passed with 60 server
+tests, 11 client tests, type-checking, production build, and lint.
+
 ## Setup
 
 ```bash

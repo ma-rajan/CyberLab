@@ -320,6 +320,9 @@ describe('lab pages', () => {
     expect(await screen.findByRole('heading', { name: 'CSRF' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
     await waitFor(() => expect(api.csrfSettings).toHaveBeenCalledWith('csrf'));
+    expect(
+      screen.getByText(/local attacker simulator models a cross-origin form submission/i),
+    ).toBeInTheDocument();
     expect(await screen.findByText('Training Victim')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset through protected request' }));

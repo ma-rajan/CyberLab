@@ -425,7 +425,67 @@ export function LabDetailPage() {
             {profileUploadResult && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="text-slate-300">{profileUploadResult.message}</p>{profileUploadResult.accepted && <p className="mt-1 font-mono text-signal">Stored: {profileUploadResult.filename} ({profileUploadResult.declaredMimeType})</p>}{profileUploadResult.completionToken && <p className="mt-3 text-signal">Mismatched content accepted. Completion value: <code>{profileUploadResult.completionToken}</code></p>}</div>}
           </div>
         )}
-        {isStarted && !isCompleted && lab.challengeType === 'CSRF' && (<div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5"><h2 className="text-lg font-semibold text-white">Training victim profile</h2><p className="mt-1 text-sm text-slate-400">This is isolated lab state only; it never changes your CyberLab account settings.</p>{csrfSettings ? <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-medium text-slate-100">{csrfSettings.profileName}</p><p className="mt-1 text-slate-300">Email notifications: <span className={csrfSettings.notificationsEnabled ? 'text-signal' : 'text-red-300'}>{csrfSettings.notificationsEnabled ? 'Enabled' : 'Disabled'}</span></p><p className="mt-1 text-slate-500">Last change used a valid CSRF token: {csrfSettings.lastChangeUsedValidCsrfToken ? 'Yes' : 'No'}</p></div> : <p className="mt-4 text-sm text-slate-400">Loading the training victim settings…</p>}<div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={simulateCsrfNotificationChange} disabled={isSubmitting} className="rounded-md border border-red-400/60 px-4 py-2 font-semibold text-red-200 disabled:opacity-60">Run attacker-request simulation</button><button type="button" onClick={updateCsrfSettingsSecurely} disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Reset through protected request</button></div><p className="mt-3 text-xs text-slate-500">The attacker simulation sends a form-style POST without an X-CSRF-Token header. The comparison control uses CyberLab’s normal token-protected request flow.</p>{csrfSettings?.completionToken && <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Unprotected state change detected. Completion value: <code>{csrfSettings.completionToken}</code></p>}</div>)}
+        {isStarted && !isCompleted && lab.challengeType === 'CSRF' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Training victim profile</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              This is isolated lab state only; it never changes your CyberLab account settings.
+            </p>
+            <p className="mt-2 text-sm text-slate-400">
+              The local attacker simulator models a cross-origin form submission to this training
+              target. It does not contact an outside site.
+            </p>
+            {csrfSettings ? (
+              <div className="mt-4 rounded border border-slate-800 p-3 text-sm">
+                <p className="font-medium text-slate-100">{csrfSettings.profileName}</p>
+                <p className="mt-1 text-slate-300">
+                  Email notifications:{' '}
+                  <span
+                    className={
+                      csrfSettings.notificationsEnabled ? 'text-signal' : 'text-red-300'
+                    }
+                  >
+                    {csrfSettings.notificationsEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </p>
+                <p className="mt-1 text-slate-500">
+                  Last change used a valid CSRF token:{' '}
+                  {csrfSettings.lastChangeUsedValidCsrfToken ? 'Yes' : 'No'}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-400">Loading the training victim settings…</p>
+            )}
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={simulateCsrfNotificationChange}
+                disabled={isSubmitting}
+                className="rounded-md border border-red-400/60 px-4 py-2 font-semibold text-red-200 disabled:opacity-60"
+              >
+                Run attacker-request simulation
+              </button>
+              <button
+                type="button"
+                onClick={updateCsrfSettingsSecurely}
+                disabled={isSubmitting}
+                className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60"
+              >
+                Reset through protected request
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              The attacker simulation sends a form-style POST without an X-CSRF-Token header. The
+              comparison control uses CyberLab’s normal token-protected request flow.
+            </p>
+            {csrfSettings?.completionToken && (
+              <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">
+                Unprotected state change detected. Completion value:{' '}
+                <code>{csrfSettings.completionToken}</code>
+              </p>
+            )}
+          </div>
+        )}
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
