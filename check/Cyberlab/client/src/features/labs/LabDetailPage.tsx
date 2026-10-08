@@ -15,7 +15,7 @@ import {
   type ApiProfileUploadResult,
   type ApiCsrfSettings,
 } from '../../lib/api';
-import { categoryLabel, difficultyLabel, progressLabel } from './lab-ui';
+import { categoryLabel, difficultyLabel, hasInteractiveTarget, progressLabel } from './lab-ui';
 
 export function LabDetailPage() {
   const { slug = '' } = useParams();
@@ -98,7 +98,7 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? lab?.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab?.challengeType === 'XSS_FEEDBACK_SEARCH' || lab?.challengeType === 'IDOR_PROFILE_ACCESS' || lab?.challengeType === 'AUTHENTICATION_BYPASS' || lab?.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab?.challengeType === 'SSRF_MOCK_FETCH' || lab?.challengeType === 'SQLI_USER_DIRECTORY' || lab?.challengeType === 'FILE_UPLOAD_VALIDATION' || lab?.challengeType === 'CSRF'
+          ? hasInteractiveTarget(lab?.challengeType ?? '')
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -429,7 +429,7 @@ export function LabDetailPage() {
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION' || lab.challengeType === 'CSRF'
+              {hasInteractiveTarget(lab.challengeType)
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -438,7 +438,7 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                lab.challengeType === 'SQL_INJECTION_PRODUCT_SEARCH' || lab.challengeType === 'XSS_FEEDBACK_SEARCH' || lab.challengeType === 'IDOR_PROFILE_ACCESS' || lab.challengeType === 'AUTHENTICATION_BYPASS' || lab.challengeType === 'BROKEN_FUNCTION_ACCESS' || lab.challengeType === 'SSRF_MOCK_FETCH' || lab.challengeType === 'SQLI_USER_DIRECTORY' || lab.challengeType === 'FILE_UPLOAD_VALIDATION' || lab.challengeType === 'CSRF'
+                hasInteractiveTarget(lab.challengeType)
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }

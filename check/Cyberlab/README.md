@@ -5,7 +5,7 @@ CyberLab is a local-only Mini Bug Bounty Training Platform for learning web secu
 ## Current scope
 
 This repository includes the React/Vite and Express foundation, secure server-side session
-authentication, a lab-management catalog, and one local, beginner-friendly challenge target.
+authentication, a lab-management catalog, and isolated local challenge targets.
 It contains no scanners or external-target functionality.
 
 Authentication uses unique usernames and normalized unique email addresses, bcrypt password hashes,
@@ -14,6 +14,49 @@ limiting. The browser first requests
 `GET /api/auth/csrf`; it receives a readable CSRF cookie/token and supplies that token in
 the `X-CSRF-Token` header for state-changing authentication requests. The session cookie
 is `httpOnly` and is never accessible to JavaScript or stored in localStorage.
+
+## Project Structure
+
+```text
+client/src/
+├── app/                    # Application routes and shell setup
+├── components/             # Shared layout and UI components
+├── features/
+│   ├── auth/               # Authentication pages and session context
+│   ├── dashboard/          # Learner dashboard
+│   ├── home/               # Public home page
+│   ├── labs/               # Lab catalog, detail page, and lab UI helpers
+│   └── challenges/         # Challenge catalog placeholder
+├── lib/                    # API client and shared frontend data types
+├── styles/                 # Global styles
+└── test/                   # Frontend test setup
+
+server/src/
+├── config/                 # Environment validation
+├── lib/                    # Prisma client
+├── middleware/             # Authentication, CSRF, rate limiting, and errors
+├── modules/
+│   ├── auth/               # Authentication controller, service, repository, and validators
+│   └── labs/               # Lab API, engine, repository, service, and validators
+│       └── isolated-targets/ # One bounded implementation per training target
+├── routes/                 # HTTP route and middleware composition
+├── types/                  # Express request augmentation
+└── utils/                  # Shared server helpers
+
+server/tests/
+├── api/                    # API health tests
+├── auth/                   # Authentication tests
+├── helpers/                # Shared lab test fixtures and database reset
+└── labs/                   # Catalog, progress, and per-target tests
+
+prisma/
+├── migrations/             # Versioned database migrations
+├── schema.prisma           # Shared SQLite data model
+└── seed.ts                 # Published lab catalog and seed data
+```
+
+Root package scripts coordinate the client and server workspaces. The Prisma schema and
+migrations remain at the repository root and are shared by the server and seed command.
 
 ## Development progress
 

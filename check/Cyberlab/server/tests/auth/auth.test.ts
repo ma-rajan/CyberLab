@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../src/app.js';
-import { prisma } from '../src/lib/prisma.js';
-import { authRateLimitStore } from '../src/middleware/auth-rate-limit.js';
+import { app } from '../../src/app.js';
+import { prisma } from '../../src/lib/prisma.js';
+import { authRateLimitStore } from '../../src/middleware/auth-rate-limit.js';
 
 const validPassword = 'SecurePassphrase1!';
 
@@ -78,15 +78,12 @@ describe('authentication API', () => {
         confirmPassword: validPassword,
       })
       .expect(201);
-    const response = await agent
-      .post('/api/auth/register')
-      .set('X-CSRF-Token', token)
-      .send({
-        username: 'learner',
-        email: 'second@example.test',
-        password: validPassword,
-        confirmPassword: validPassword,
-      });
+    const response = await agent.post('/api/auth/register').set('X-CSRF-Token', token).send({
+      username: 'learner',
+      email: 'second@example.test',
+      password: validPassword,
+      confirmPassword: validPassword,
+    });
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe('REGISTRATION_FAILED');
   });
@@ -94,18 +91,17 @@ describe('authentication API', () => {
   it('rejects malformed registration input', async () => {
     const agent = request.agent(app);
     const token = await csrf(agent);
-    const response = await agent
-      .post('/api/auth/register')
-      .set('X-CSRF-Token', token)
-      .send({
-        username: 'invalid username',
-        email: 'invalid',
-        password: 'short',
-        confirmPassword: 'different',
-      });
+    const response = await agent.post('/api/auth/register').set('X-CSRF-Token', token).send({
+      username: 'invalid username',
+      email: 'invalid',
+      password: 'short',
+      confirmPassword: 'different',
+    });
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
-    expect(response.body.error.message).toBe('Username may contain only letters, numbers, and underscores.');
+    expect(response.body.error.message).toBe(
+      'Username may contain only letters, numbers, and underscores.',
+    );
   });
 
   it('rejects registration with missing fields', async () => {
