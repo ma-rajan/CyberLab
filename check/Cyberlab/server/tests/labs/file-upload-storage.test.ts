@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -133,6 +134,80 @@ describe('bounded file-upload storage', () => {
     const learnerDirectory = path.join(root, '64c72cbd49c712030dc5394b9fc3838a28b862f9ae822d2f47243a4250da0214');
     expect((await fs.readdir(learnerDirectory)).sort()).toEqual([`${active.id}.bin`, `${active.id}.json`].sort());
     expect(await fs.readFile(path.join(outside, 'keep.txt'), 'utf8')).toBe('untouched');
+  });
+
+  it('does not follow symlinked upload records outside the lab storage root', async () => {
+    const root = await makeRoot();
+    const outside = `${root}-outside`;
+    roots.push(outside);
+    await fs.mkdir(outside);
+    const outsideFile = path.join(outside, 'keep.bin');
+    await fs.writeFile(outsideFile, 'outside data');
+    const learnerDirectory = path.join(root, createHash('sha256').update('learner-a').digest('hex'));
+    await fs.mkdir(learnerDirectory);
+    await fs.symlink(outsideFile, path.join(learnerDirectory, `${fixedId}.bin`));
+    await fs.writeFile(path.join(learnerDirectory, `${fixedId}.json`), JSON.stringify({
+      id: fixedId,
+      originalFilename: 'proof.png',
+      declaredMimeType: 'image/png',
+      size: 12,
+      isMismatched: true,
+      createdAt: 1_000,
+    }));
+    const store = makeStore(root);
+
+    await expect(store.read('learner-a', fixedId)).resolves.toBeNull();
+    await expect(fs.readFile(outsideFile, 'utf8')).resolves.toBe('outside data');
+  });
+
+  it('expires malformed records and removes missing-file orphans safely', async () => {
+    const root = await makeRoot();
+    let currentTime = Date.now();
+    const store = makeStore(root, { now: () => currentTime, ttlMs: 60 * 60 * 1000 });
+    const saved = await upload(store, 'learner-a');
+    if (!saved.accepted) throw new Error('Initial upload should be accepted.');
+    const learnerDirectory = path.join(root, createHash('sha256').update('learner-a').digest('hex'));
+    const metadataPath = path.join(learnerDirectory, `${saved.id}.json`);
+    await fs.writeFile(metadataPath, '{ malformed metadata');
+
+    await expect(store.hasMismatchedUpload('learner-a')).resolves.toBe(false);
+    await expect(fs.readFile(path.join(learnerDirectory, `${saved.id}.bin`))).resolves.toEqual(Buffer.from('x'));
+
+    currentTime += 60 * 60 * 1000 + 1_000;
+    await expect(store.cleanupExpiredUploads()).resolves.toBe(1);
+    await expect(fs.access(metadataPath)).rejects.toThrow();
+
+    const orphaned = await upload(store, 'learner-a', Buffer.from('orphan'));
+    if (!orphaned.accepted) throw new Error('Upload after expiry should be accepted.');
+    const orphanMetadataPath = path.join(learnerDirectory, `${orphaned.id}.json`);
+    await fs.unlink(path.join(learnerDirectory, `${orphaned.id}.bin`));
+    await expect(store.cleanupExpiredUploads()).resolves.toBeGreaterThanOrEqual(1);
+    await expect(fs.access(orphanMetadataPath)).rejects.toThrow();
+
+    expect((await upload(store, 'learner-a')).accepted).toBe(true);
+  });
+
+  it('fails closed on cleanup I/O errors and allows a later upload after cleanup succeeds', async () => {
+    const root = await makeRoot();
+    let currentTime = 0;
+    const store = makeStore(root, { now: () => currentTime, ttlMs: 1_000, maxFilesPerLearner: 1 });
+    const oldUpload = await upload(store, 'learner-a');
+    if (!oldUpload.accepted) throw new Error('Initial upload should be accepted.');
+    currentTime = 1_000;
+    const binaryPath = path.join(
+      root,
+      createHash('sha256').update('learner-a').digest('hex'),
+      `${oldUpload.id}.bin`,
+    );
+    const originalUnlink = fs.unlink.bind(fs);
+    vi.spyOn(fs, 'unlink').mockImplementation(async (filePath) => {
+      if (filePath === binaryPath) throw Object.assign(new Error('simulated cleanup permission error'), { code: 'EACCES' });
+      return originalUnlink(filePath);
+    });
+
+    await expect(upload(store, 'learner-a', Buffer.from('new'))).rejects.toMatchObject({ code: 'EACCES' });
+    vi.restoreAllMocks();
+    expect((await upload(store, 'learner-a', Buffer.from('new'))).accepted).toBe(true);
   });
 
   it('cleans temporary and final files after a failed atomic write without reserving quota', async () => {

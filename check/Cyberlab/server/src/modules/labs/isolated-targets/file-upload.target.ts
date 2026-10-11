@@ -150,13 +150,18 @@ export function createTrainingUploadStore(options: TrainingUploadStoreOptions) {
       for (const id of fileIds) {
         const binaryPath = path.join(directory, `${id}.bin`);
         const metadataPath = path.join(directory, `${id}.json`);
-        let binaryStat;
-        let metadataStat;
-        try {
-          [binaryStat, metadataStat] = await Promise.all([fs.lstat(binaryPath), fs.lstat(metadataPath)]);
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-        }
+        const statOrMissing = async (filePath: string) => {
+          try {
+            return await fs.lstat(filePath);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+            throw error;
+          }
+        };
+        const [binaryStat, metadataStat] = await Promise.all([
+          statOrMissing(binaryPath),
+          statOrMissing(metadataPath),
+        ]);
         const binaryIsSafe = Boolean(binaryStat?.isFile() && !binaryStat.isSymbolicLink());
         const metadataIsSafe = Boolean(metadataStat?.isFile() && !metadataStat.isSymbolicLink());
         if (!binaryIsSafe || !metadataIsSafe) {
