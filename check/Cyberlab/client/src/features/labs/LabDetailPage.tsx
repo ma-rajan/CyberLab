@@ -14,6 +14,7 @@ import {
   type ApiDirectoryRecord,
   type ApiProfileUploadResult,
   type ApiCsrfSettings,
+  type ApiTrainingFile,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, hasInteractiveTarget, progressLabel } from './lab-ui';
 
@@ -42,6 +43,8 @@ export function LabDetailPage() {
   const [directoryQuery, setDirectoryQuery] = useState('alice');
   const [directoryPreview, setDirectoryPreview] = useState<string | null>(null);
   const [directoryRecords, setDirectoryRecords] = useState<ApiDirectoryRecord[] | null>(null);
+  const [trainingFilePath, setTrainingFilePath] = useState('readme.txt');
+  const [trainingFile, setTrainingFile] = useState<ApiTrainingFile | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileUploadResult, setProfileUploadResult] = useState<ApiProfileUploadResult | null>(null);
   const [csrfSettings, setCsrfSettings] = useState<ApiCsrfSettings | null>(null);
@@ -180,6 +183,13 @@ export function LabDetailPage() {
       const response = await api.searchDirectory(slug, directoryQuery);
       setDirectoryPreview(response.queryPreview); setDirectoryRecords(response.records);
     } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to search the mock directory.'); }
+    finally { setIsSubmitting(false); }
+  }
+
+  async function readTrainingFileHandler(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setTrainingFile(null); setIsSubmitting(true);
+    try { setTrainingFile(await api.readTrainingFile(slug, trainingFilePath)); }
+    catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to read the training file.'); }
     finally { setIsSubmitting(false); }
   }
 
@@ -423,6 +433,18 @@ export function LabDetailPage() {
               <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Upload Profile Image</button>
             </form>
             {profileUploadResult && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="text-slate-300">{profileUploadResult.message}</p>{profileUploadResult.accepted && <p className="mt-1 font-mono text-signal">Stored: {profileUploadResult.filename} ({profileUploadResult.declaredMimeType})</p>}{profileUploadResult.completionToken && <p className="mt-3 text-signal">Mismatched content accepted. Completion value: <code>{profileUploadResult.completionToken}</code></p>}</div>}
+          </div>
+        )}
+        {isStarted && !isCompleted && lab.challengeType === 'PATH_TRAVERSAL' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Training File Viewer</h2>
+            <p className="mt-1 text-sm text-slate-400">The viewer uses a fixed virtual file map. It never reads files from the CyberLab host.</p>
+            <p className="mt-2 text-sm text-slate-400">Remediation: resolve paths against a fixed base directory, verify the canonical result remains inside that directory, and prefer mapping user choices to fixed file IDs.</p>
+            <form onSubmit={readTrainingFileHandler} className="mt-4 flex flex-wrap gap-3">
+              <input aria-label="Training file path" value={trainingFilePath} onChange={(event) => setTrainingFilePath(event.target.value)} placeholder="readme.txt" className="min-w-52 flex-1 rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white outline-none focus:border-cyber" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Read file</button>
+            </form>
+            {trainingFile && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-mono text-xs text-slate-500">Resolved virtual path: {trainingFile.resolvedPath}</p><pre className="mt-2 whitespace-pre-wrap text-slate-200">{trainingFile.content}</pre>{trainingFile.completionToken && <p className="mt-3 text-signal">Synthetic restricted note found. Completion value: <code>{trainingFile.completionToken}</code></p>}</div>}
           </div>
         )}
         {isStarted && !isCompleted && lab.challengeType === 'CSRF' && (

@@ -13,6 +13,7 @@ async function main() {
   const sqliFlagHash = await bcrypt.hash('SQLI_DIRECTORY_ACCESS_CONFIRMED', 12);
   const fileUploadFlagHash = await bcrypt.hash('FILE_UPLOAD_MISMATCH_CONFIRMED', 12);
   const csrfFlagHash = await bcrypt.hash('CSRF_NOTIFICATION_CHANGE_CONFIRMED', 12);
+  const pathTraversalFlagHash = await bcrypt.hash('PATH_TRAVERSAL_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -20,6 +21,27 @@ async function main() {
   });
 
   const labs = [
+    {
+      slug: 'path-traversal',
+      title: 'Path Traversal',
+      description: 'Investigate a mock file viewer that joins a user supplied path without keeping it inside its public directory.',
+      category: 'WEB_SECURITY' as const,
+      difficulty: 'BEGINNER' as const,
+      estimatedMinutes: 25,
+      points: 100,
+      isPublished: true,
+      objective: 'Recognize how an unchecked relative path can escape an intended directory and expose restricted content.',
+      instructions: 'Start the lab and read the public readme.txt file first. The mock viewer resolves your relative path from /public without checking the final virtual path. Explore the request path and retrieve the synthetic maintenance note under /private. This target uses a fixed in-memory file map and never reads files from the host. Submit the completion value shown in that note.',
+      target: 'Training File Viewer — GET /api/labs/path-traversal/read?file=<relative-path>',
+      challengeType: 'PATH_TRAVERSAL',
+      validatorType: 'PATH_TRAVERSAL',
+      flagHash: pathTraversalFlagHash,
+      hints: JSON.stringify([
+        'Start with the ordinary relative filename readme.txt.',
+        'The viewer joins the supplied path to /public and normalizes the result.',
+        'A parent directory segment can move from /public to the sibling /private directory.',
+      ]),
+    },
     { slug: 'csrf', title: 'CSRF', description: 'Investigate a training profile setting that trusts an authenticated browser session without validating a CSRF token.', category: 'WEB_SECURITY' as const, difficulty: 'BEGINNER' as const, estimatedMinutes: 20, points: 100, isPublished: true,
       objective: 'Change the training victim’s notification setting through a cross-site request simulation without using the normal protected form.',
       instructions: 'Start the lab and inspect the training victim’s current notification preference. Use the controlled attacker-request simulator to submit a form-style state-changing request without a CSRF token. The target relies on the authenticated session and intentionally accepts the request. This affects only isolated per-lab training state. Submit the completion value once notifications are disabled.',

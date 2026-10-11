@@ -99,6 +99,7 @@ export interface ApiProfileUploadResult {
   completionToken: string | null;
 }
 export interface ApiCsrfSettings { profileName: string; notificationsEnabled: boolean; lastChangeUsedValidCsrfToken: boolean; completionToken?: string | null; }
+export interface ApiTrainingFile { requestedPath: string; resolvedPath: string; content: string; completionToken: string | null; }
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -220,6 +221,8 @@ export const api = {
     request<{ queryPreview: string; records: ApiDirectoryRecord[] }>(
       `/api/labs/${encodeURIComponent(slug)}/search?q=${encodeURIComponent(query)}`,
     ),
+  readTrainingFile: (slug: string, file: string) =>
+    request<ApiTrainingFile>(`/api/labs/${encodeURIComponent(slug)}/read?file=${encodeURIComponent(file)}`),
   uploadProfileImage: (slug: string, file: File) =>
     uploadFile<ApiProfileUploadResult>(`/api/labs/${encodeURIComponent(slug)}/target/upload`, file),
   csrfSettings: (slug: string) => request<ApiCsrfSettings>(`/api/labs/${encodeURIComponent(slug)}/target/settings`),

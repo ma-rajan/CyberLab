@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import { attachAuthenticatedUser, requireAuthentication } from '../middleware/authenticate.js';
 import { requireCsrfToken } from '../middleware/csrf.js';
-import { completeLab, fetchMockTarget, getCsrfSettingsTarget, getLab, getLabProgress, getProfileTarget, getProfileUploadTarget, getProgress, getSession, getTrainingReportTarget, listLabs, loginTrainingTarget, searchDirectoryTarget, searchFeedbackTarget, searchProductTarget, startLab, submitLab, updateCsrfSettingsTarget, uploadProfileImageTarget } from '../modules/labs/lab.controller.js';
+import { completeLab, fetchMockTarget, getCsrfSettingsTarget, getLab, getLabProgress, getProfileTarget, getProfileUploadTarget, getProgress, getSession, getTrainingReportTarget, listLabs, loginTrainingTarget, readTrainingFileTarget, searchDirectoryTarget, searchFeedbackTarget, searchProductTarget, startLab, submitLab, updateCsrfSettingsTarget, uploadProfileImageTarget } from '../modules/labs/lab.controller.js';
 
 export const labRouter = Router();
 
@@ -16,6 +16,7 @@ labRouter.post('/:slug/target/login', requireAuthentication, requireCsrfToken, l
 labRouter.get('/:slug/target/report', requireAuthentication, getTrainingReportTarget);
 labRouter.get('/:slug/fetch', requireAuthentication, fetchMockTarget);
 labRouter.get('/:slug/search', requireAuthentication, searchDirectoryTarget);
+labRouter.get('/:slug/read', requireAuthentication, readTrainingFileTarget);
 labRouter.post('/:slug/target/upload', requireAuthentication, requireCsrfToken, express.raw({ type: 'application/octet-stream', limit: '32kb' }), uploadProfileImageTarget);
 labRouter.get('/:slug/target/files/:filename', requireAuthentication, getProfileUploadTarget);
 labRouter.get('/:slug/target/settings', requireAuthentication, getCsrfSettingsTarget);

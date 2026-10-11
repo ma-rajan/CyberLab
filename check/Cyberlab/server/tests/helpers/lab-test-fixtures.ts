@@ -223,6 +223,28 @@ export async function createCsrfChallenge() {
   });
 }
 
+export async function createPathTraversalChallenge(isPublished = true) {
+  return prisma.lab.create({
+    data: {
+      slug: 'path-traversal',
+      title: 'Path Traversal',
+      description: 'Mock file viewer challenge.',
+      category: 'WEB_SECURITY',
+      difficulty: 'BEGINNER',
+      estimatedMinutes: 25,
+      points: 100,
+      isPublished,
+      objective: 'Understand unsafe path resolution.',
+      instructions: 'Use Training File Viewer.',
+      hints: JSON.stringify(['Read readme.txt first.', 'Try a parent directory segment.']),
+      target: 'Training File Viewer',
+      challengeType: 'PATH_TRAVERSAL',
+      validatorType: 'PATH_TRAVERSAL',
+      flagHash: await bcrypt.hash('PATH_TRAVERSAL_CONFIRMED', 12),
+    },
+  });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }

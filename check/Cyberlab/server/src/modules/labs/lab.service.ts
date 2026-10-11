@@ -17,6 +17,7 @@ import {
   getTrainingCsrfSettings,
   updateTrainingCsrfSettings,
 } from './isolated-targets/csrf-settings.target.js';
+import { readTrainingFile } from './isolated-targets/path-traversal.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -164,5 +165,11 @@ export const labService = {
   ) {
     await requireLabTargetSession(userId, slug, 'CSRF');
     return updateTrainingCsrfSettings(userId, notificationsEnabled, usedValidCsrfToken);
+  },
+  async readTrainingFileTarget(userId: string, slug: string, file: string) {
+    await requireLabTargetSession(userId, slug, 'PATH_TRAVERSAL');
+    const result = readTrainingFile(userId, file);
+    if (!result) throw new AppError(404, 'FILE_NOT_FOUND', 'Training file not found.');
+    return result;
   },
 };

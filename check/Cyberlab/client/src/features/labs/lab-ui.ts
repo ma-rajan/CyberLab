@@ -10,6 +10,7 @@ const interactiveChallengeTypes = new Set([
   'SQLI_USER_DIRECTORY',
   'FILE_UPLOAD_VALIDATION',
   'CSRF',
+  'PATH_TRAVERSAL',
 ]);
 
 function words(value: string) {

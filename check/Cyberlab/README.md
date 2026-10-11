@@ -75,6 +75,7 @@ migrations remain at the repository root and are shared by the server and seed c
 | Phase 11 — Isolated SQL Injection Challenge | ✅ Completed |
 | Phase 12 — Isolated File Upload Validation Challenge | ✅ Completed |
 | Phase 13 — Isolated CSRF Challenge | ✅ Completed |
+| Phase 14 — Isolated Path Traversal Challenge | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -151,6 +152,7 @@ Secure CyberLab Platform
 │   │   ├── Training Workspace function-authorization target (fixed synthetic reports)
 │   │   ├── Mock Fetch SSRF target (fixed in-memory path map)
 │   │   ├── Mock User Directory SQLi target (fixed synthetic records)
+│   │   ├── Training File Viewer Path Traversal target (fixed virtual documents)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -297,6 +299,26 @@ normal CSRF-token flow. Tests cover both request paths, incomplete and incorrect
 per-learner isolation, and ensuring the CSRF target cannot affect unrelated labs. The frontend test
 covers the local attacker simulation and protected comparison. Verification passed with 60 server
 tests, 11 client tests, type-checking, production build, and lint.
+
+## Phase 14 — Isolated Path Traversal Challenge
+
+**Path Traversal** is available after starting the lab at
+`GET /api/labs/path-traversal/read?file=<relative-path>`. The training file viewer starts from
+the virtual `/public` directory and normalizes the supplied relative path without enforcing that
+the resolved path remains in that directory. Learners first read the public `readme.txt`, then
+use a parent directory segment to retrieve a synthetic note from `/private/maintenance.txt`.
+The remediation is to resolve against a fixed base directory and verify the canonical result
+remains beneath it, or map user choices to fixed file identifiers instead of accepting paths.
+
+The target uses a fixed in-memory map and `node:path` path normalization only. It never opens,
+stats, or reads a host file; arbitrary and unmapped paths return a not-found response. Authentication
+and the learner's active lab session are required. The existing validator additionally checks that
+the same learner read the restricted synthetic note before accepting the completion value. Tests
+cover metadata privacy, publication state, authentication and session gates, normal and traversed
+paths, malformed and host-file-like inputs, per-learner isolation, and completion. The frontend
+provides a local path input and renders only the returned virtual document as text. Verification
+passed with 64 server tests, 12 client tests, workspace type-checking, lint, production build,
+Prisma validation, and Git whitespace checks.
 
 ## Setup
 

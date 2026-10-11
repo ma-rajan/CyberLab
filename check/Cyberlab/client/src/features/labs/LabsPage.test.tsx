@@ -33,6 +33,7 @@ const { api } = vi.hoisted(() => ({
     trainingReport: vi.fn(),
     fetchMockResource: vi.fn(),
     searchDirectory: vi.fn(),
+    readTrainingFile: vi.fn(),
     uploadProfileImage: vi.fn(),
     csrfSettings: vi.fn(),
     simulateCsrfNotificationChange: vi.fn(),
@@ -125,6 +126,7 @@ beforeEach(() => {
   api.trainingReport.mockResolvedValue({ section: 'admin-audit', title: 'Administrator audit report', summary: 'Synthetic audit data.', completionToken: 'BROKEN_FUNCTION_ACCESS_CONFIRMED' });
   api.fetchMockResource.mockResolvedValue({ path: '/internal/admin-config', status: 'ok', message: 'Synthetic internal configuration loaded.', completionToken: 'SSRF_INTERNAL_CONFIG_CONFIRMED' });
   api.searchDirectory.mockResolvedValue({ queryPreview: "SELECT id, username, role FROM mock_users WHERE username = 'alice'", records: [{ id: 3, username: 'auditor', role: 'admin', status: 'internal-review', flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }] });
+  api.readTrainingFile.mockResolvedValue({ requestedPath: '../private/maintenance.txt', resolvedPath: '/private/maintenance.txt', content: 'Synthetic training note.', completionToken: 'PATH_TRAVERSAL_CONFIRMED' });
   api.uploadProfileImage.mockResolvedValue({ accepted: true, id: 'upload-1', filename: 'notes.png', declaredMimeType: 'image/png', downloadPath: 'upload-1', message: 'Profile image stored by the isolated training target.', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
   api.csrfSettings.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: false, completionToken: null });
   api.updateCsrfSettingsSecurely.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: true, completionToken: null });
@@ -187,6 +189,21 @@ describe('lab pages', () => {
       }),
     );
     expect(await screen.findByText('Completed — 100 points')).toBeInTheDocument();
+  });
+
+  it('renders the virtual file viewer and submits its discovered completion value', async () => {
+    const traversalLab = { ...lab, slug: 'path-traversal', title: 'Path Traversal', category: 'WEB_SECURITY' as const, challengeType: 'PATH_TRAVERSAL' };
+    api.lab.mockResolvedValue({ lab: traversalLab });
+    render(<MemoryRouter initialEntries={['/labs/path-traversal']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Path Traversal' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.change(await screen.findByLabelText('Training file path'), { target: { value: '../private/maintenance.txt' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read file' }));
+    await waitFor(() => expect(api.readTrainingFile).toHaveBeenCalledWith('path-traversal', '../private/maintenance.txt'));
+    expect(await screen.findByText(/Synthetic restricted note found/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'PATH_TRAVERSAL_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('path-traversal', { flag: 'PATH_TRAVERSAL_CONFIRMED' }));
   });
 
   it('renders the XSS target in a sandboxed iframe and submits its completion value', async () => {

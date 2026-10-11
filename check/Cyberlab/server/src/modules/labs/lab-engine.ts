@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { hasMismatchedTrainingUpload } from './isolated-targets/file-upload.target.js';
 import { hasUnprotectedNotificationChange } from './isolated-targets/csrf-settings.target.js';
+import { hasReadRestrictedTrainingFile } from './isolated-targets/path-traversal.target.js';
 
 export interface LabValidationResult {
   success: boolean;
@@ -70,6 +71,21 @@ const csrfDefinition: LabDefinition = { challengeType: 'CSRF', validate: async (
   const accepted = context.validatorType === 'CSRF' && Boolean(context.flagHash) && await bcrypt.compare(flag, context.flagHash!) && hasUnprotectedNotificationChange(context.userId);
   return { success: accepted, completed: accepted, message: accepted ? 'Verified: the isolated victim setting changed without a valid CSRF token. CSRF is complete.' : 'First change the isolated notification setting through the tokenless training request, then submit its completion value.' };
 } };
+const pathTraversalDefinition: LabDefinition = {
+  challengeType: 'PATH_TRAVERSAL',
+  validate: async (submission, context) => {
+    const flag = typeof submission.flag === 'string' ? submission.flag : '';
+    const accepted = context.validatorType === 'PATH_TRAVERSAL' && Boolean(context.flagHash) &&
+      await bcrypt.compare(flag, context.flagHash!) && hasReadRestrictedTrainingFile(context.userId);
+    return {
+      success: accepted,
+      completed: accepted,
+      message: accepted
+        ? 'Verified: the isolated file service exposed its synthetic restricted note. Path Traversal is complete.'
+        : 'Read the synthetic restricted note through the isolated target before submitting its completion value.',
+    };
+  },
+};
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
@@ -80,6 +96,7 @@ for (const definition of [
   createFlagDefinition('SQLI_USER_DIRECTORY', 'Correct completion value. SQL Injection is complete.'),
   fileUploadDefinition,
   csrfDefinition,
+  pathTraversalDefinition,
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {

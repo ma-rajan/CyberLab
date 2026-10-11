@@ -4,10 +4,12 @@ import { beforeEach } from 'vitest';
 import { prisma } from '../../src/lib/prisma.js';
 import { authRateLimitStore } from '../../src/middleware/auth-rate-limit.js';
 import { resetTrainingCsrfSettings } from '../../src/modules/labs/isolated-targets/csrf-settings.target.js';
+import { resetTrainingFileReads } from '../../src/modules/labs/isolated-targets/path-traversal.target.js';
 
 beforeEach(async () => {
   authRateLimitStore.resetAll();
   resetTrainingCsrfSettings();
+  resetTrainingFileReads();
   await prisma.labSession.deleteMany();
   await prisma.labProgress.deleteMany();
   await prisma.lab.deleteMany();
