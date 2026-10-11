@@ -273,10 +273,20 @@ claimed MIME type. Every retrieval is a `nosniff` attachment with an octet-strea
 The dedicated validator requires both the existing bcrypt-backed completion value and a verified
 mismatched upload owned by the learner, so guessing the value alone cannot complete the lab.
 
+Storage is bounded to 10 files and 256 KiB of stored data per learner, with a 16 MiB global
+stored-data limit. Uploads expire 24 hours after creation; the server removes expired uploads at
+startup and during an hourly cleanup sweep. These defaults can be changed with
+`LAB_UPLOAD_MAX_FILES_PER_LEARNER`, `LAB_UPLOAD_MAX_BYTES_PER_LEARNER`,
+`LAB_UPLOAD_MAX_BYTES_GLOBAL`, and `LAB_UPLOAD_TTL_HOURS`. Quota decisions and writes are serialized
+within the current Node process. The current server starts one process; deployments using multiple
+workers must add a shared transactional quota lock before enabling shared storage.
+
 Server tests cover normal image upload, the accepted harmless content/type mismatch, stored-file
 retrieval, malformed upload requests, learner isolation, path traversal rejection, storage confined
-to the training directory, and validator completion. The frontend test covers file selection,
-upload feedback, and completion submission. Phase 12 verification passed with 58 server tests, 11
+to the training directory, per-learner and global quotas, concurrent quota boundaries, partial-write
+cleanup, expiration of abandoned uploads, preservation of fresh uploads, and validator completion.
+Tests use isolated temporary storage. The frontend test covers file selection, upload feedback, and
+completion submission. Phase 12 verification passed with 58 server tests, 11
 client tests, workspace type-checking, and the production build.
 
 ## Phase 13 — Isolated CSRF Challenge

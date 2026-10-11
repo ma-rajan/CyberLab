@@ -78,7 +78,7 @@ describe('lab API: file-upload', () => {
     const learner = await prisma.user.findUniqueOrThrow({
       where: { username: 'platform_learner' },
     });
-    const storageRoot = path.resolve(process.cwd(), '.lab-storage', 'file-upload');
+    const storageRoot = path.resolve(process.env.CYBERLAB_TEST_FILE_UPLOAD_ROOT!);
     const learnerDirectory = path.resolve(
       storageRoot,
       createHash('sha256').update(learner.id).digest('hex'),
@@ -132,7 +132,7 @@ describe('lab API: file-upload', () => {
 
     const projectFile = path.resolve(process.cwd(), 'package.json');
     expect(await fs.readFile(projectFile, 'utf8')).toContain('"name": "@cyberlab/server"');
-    const storageRoot = path.resolve(process.cwd(), '.lab-storage', 'file-upload');
+    const storageRoot = path.resolve(process.env.CYBERLAB_TEST_FILE_UPLOAD_ROOT!);
     const learner = await prisma.user.findUniqueOrThrow({
       where: { username: 'malformed_uploader' },
     });
