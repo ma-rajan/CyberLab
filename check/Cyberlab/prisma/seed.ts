@@ -14,6 +14,7 @@ async function main() {
   const fileUploadFlagHash = await bcrypt.hash('FILE_UPLOAD_MISMATCH_CONFIRMED', 12);
   const csrfFlagHash = await bcrypt.hash('CSRF_NOTIFICATION_CHANGE_CONFIRMED', 12);
   const pathTraversalFlagHash = await bcrypt.hash('PATH_TRAVERSAL_CONFIRMED', 12);
+  const sstiFlagHash = await bcrypt.hash('SSTI_PREVIEW_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -21,6 +22,27 @@ async function main() {
   });
 
   const labs = [
+    {
+      slug: 'ssti-basics',
+      title: 'Server-Side Template Injection',
+      description: 'Compare an allowlisted training template preview with a secure preview that treats input as literal data.',
+      category: 'INJECTION' as const,
+      difficulty: 'BEGINNER' as const,
+      estimatedMinutes: 30,
+      points: 125,
+      isPublished: true,
+      objective: 'Recognize how evaluating user-controlled template syntax can expose server-side template context, and how to keep untrusted input as data.',
+      instructions: 'Start the lab and submit a harmless expression such as {{7*7}}. Compare the vulnerable preview, which interprets a small set of training expressions, with the secure preview, which displays the same input literally. Then use the fixed training context value to retrieve the completion value. The evaluator supports only bounded arithmetic, fixed synthetic context keys, and concatenated string literals; unsupported expressions are rejected and no general-purpose template engine runs.',
+      target: 'Training Template Preview — GET /api/labs/ssti-basics/render?input=<text>',
+      challengeType: 'SSTI_ALLOWLISTED',
+      validatorType: 'SSTI',
+      flagHash: sstiFlagHash,
+      hints: JSON.stringify([
+        'Compare the two outputs for {{7*7}}: which preview evaluates the braces?',
+        'Only fixed training context keys and simple expressions are available to the vulnerable preview.',
+        'A secure application inserts user input as a value rather than parsing it as template source.',
+      ]),
+    },
     {
       slug: 'path-traversal',
       title: 'Path Traversal',

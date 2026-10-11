@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { hasMismatchedTrainingUpload } from './isolated-targets/file-upload.target.js';
 import { hasUnprotectedNotificationChange } from './isolated-targets/csrf-settings.target.js';
 import { hasReadRestrictedTrainingFile } from './isolated-targets/path-traversal.target.js';
+import { hasCompletedSstiExercise } from './isolated-targets/ssti-preview.target.js';
 
 export interface LabValidationResult {
   success: boolean;
@@ -86,6 +87,21 @@ const pathTraversalDefinition: LabDefinition = {
     };
   },
 };
+const sstiDefinition: LabDefinition = {
+  challengeType: 'SSTI_ALLOWLISTED',
+  validate: async (submission, context) => {
+    const flag = typeof submission.flag === 'string' ? submission.flag : '';
+    const accepted = context.validatorType === 'SSTI' && Boolean(context.flagHash) &&
+      await bcrypt.compare(flag, context.flagHash!) && hasCompletedSstiExercise(context.userId);
+    return {
+      success: accepted,
+      completed: accepted,
+      message: accepted
+        ? 'Verified: you compared template evaluation with literal data rendering. SSTI is complete.'
+        : 'Demonstrate an allowed expression, compare the secure preview, and retrieve the training completion value first.',
+    };
+  },
+};
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
@@ -97,6 +113,7 @@ for (const definition of [
   fileUploadDefinition,
   csrfDefinition,
   pathTraversalDefinition,
+  sstiDefinition,
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {

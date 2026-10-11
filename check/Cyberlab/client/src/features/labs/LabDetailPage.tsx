@@ -15,6 +15,7 @@ import {
   type ApiProfileUploadResult,
   type ApiCsrfSettings,
   type ApiTrainingFile,
+  type ApiSstiPreview,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, hasInteractiveTarget, progressLabel } from './lab-ui';
 
@@ -45,6 +46,8 @@ export function LabDetailPage() {
   const [directoryRecords, setDirectoryRecords] = useState<ApiDirectoryRecord[] | null>(null);
   const [trainingFilePath, setTrainingFilePath] = useState('readme.txt');
   const [trainingFile, setTrainingFile] = useState<ApiTrainingFile | null>(null);
+  const [sstiInput, setSstiInput] = useState('{{7*7}}');
+  const [sstiPreview, setSstiPreview] = useState<ApiSstiPreview | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileUploadResult, setProfileUploadResult] = useState<ApiProfileUploadResult | null>(null);
   const [csrfSettings, setCsrfSettings] = useState<ApiCsrfSettings | null>(null);
@@ -190,6 +193,13 @@ export function LabDetailPage() {
     event.preventDefault(); setError(null); setTrainingFile(null); setIsSubmitting(true);
     try { setTrainingFile(await api.readTrainingFile(slug, trainingFilePath)); }
     catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to read the training file.'); }
+    finally { setIsSubmitting(false); }
+  }
+
+  async function renderSstiPreviewHandler(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setSstiPreview(null); setIsSubmitting(true);
+    try { setSstiPreview(await api.renderSstiPreview(slug, sstiInput)); }
+    catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to render the training template preview.'); }
     finally { setIsSubmitting(false); }
   }
 
@@ -445,6 +455,19 @@ export function LabDetailPage() {
               <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Read file</button>
             </form>
             {trainingFile && <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-mono text-xs text-slate-500">Resolved virtual path: {trainingFile.resolvedPath}</p><pre className="mt-2 whitespace-pre-wrap text-slate-200">{trainingFile.content}</pre>{trainingFile.completionToken && <p className="mt-3 text-signal">Synthetic restricted note found. Completion value: <code>{trainingFile.completionToken}</code></p>}</div>}
+          </div>
+        )}
+        {isStarted && !isCompleted && lab.challengeType === 'SSTI_ALLOWLISTED' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Training Template Preview</h2>
+            <p className="mt-1 text-sm text-slate-400">The vulnerable preview interprets a tiny, allowlisted set of training expressions. The secure preview inserts the same input as literal text.</p>
+            <form onSubmit={renderSstiPreviewHandler} className="mt-4 flex flex-wrap gap-3">
+              <input aria-label="Template input" value={sstiInput} onChange={(event) => setSstiInput(event.target.value)} maxLength={200} className="min-w-52 flex-1 rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white outline-none focus:border-cyber" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Render comparison</button>
+            </form>
+            {sstiPreview && <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded border border-red-400/30 p-3"><h3 className="text-sm font-semibold text-red-200">Vulnerable training behavior</h3><pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-200">{sstiPreview.vulnerableOutput}</pre></div><div className="rounded border border-signal/30 p-3"><h3 className="text-sm font-semibold text-signal">Secure behavior</h3><pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-200">{sstiPreview.secureOutput}</pre></div></div>}
+            {sstiPreview?.completionToken && <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Synthetic completion value: <code>{sstiPreview.completionToken}</code></p>}
+            <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-semibold text-slate-200">Remediation</p><p className="mt-1 text-slate-400">Keep the template fixed and pass untrusted input as a value. Never concatenate user input into template source.</p><code className="mt-2 block break-all font-mono text-xs text-cyber">const safePreview = renderFixedTemplate(userInput);</code></div>
           </div>
         )}
         {isStarted && !isCompleted && lab.challengeType === 'CSRF' && (

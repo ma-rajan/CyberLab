@@ -11,6 +11,7 @@ const interactiveChallengeTypes = new Set([
   'FILE_UPLOAD_VALIDATION',
   'CSRF',
   'PATH_TRAVERSAL',
+  'SSTI_ALLOWLISTED',
 ]);
 
 function words(value: string) {

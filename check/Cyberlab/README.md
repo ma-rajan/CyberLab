@@ -76,6 +76,7 @@ migrations remain at the repository root and are shared by the server and seed c
 | Phase 12 — Isolated File Upload Validation Challenge | ✅ Completed |
 | Phase 13 — Isolated CSRF Challenge | ✅ Completed |
 | Phase 14 — Isolated Path Traversal Challenge | ✅ Completed |
+| Phase 15 — Isolated SSTI Training Lab | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -153,6 +154,7 @@ Secure CyberLab Platform
 │   │   ├── Mock Fetch SSRF target (fixed in-memory path map)
 │   │   ├── Mock User Directory SQLi target (fixed synthetic records)
 │   │   ├── Training File Viewer Path Traversal target (fixed virtual documents)
+│   │   ├── Training Template SSTI target (allowlisted expressions and fixed data)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -319,6 +321,28 @@ paths, malformed and host-file-like inputs, per-learner isolation, and completio
 provides a local path input and renders only the returned virtual document as text. Verification
 passed with 64 server tests, 12 client tests, workspace type-checking, lint, production build,
 Prisma validation, and Git whitespace checks.
+
+## Phase 15 — Isolated SSTI Training Lab
+
+**Server-Side Template Injection** is available after starting the lab at
+`GET /api/labs/ssti-basics/render?input=<text>`. The vulnerable training preview parses a
+deliberately small template syntax so learners can compare `{{7*7}}` becoming `49` with the secure
+preview displaying those braces literally. Other supported examples use fixed context values such
+as `learner.name` and concatenations of quoted strings. The only synthetic completion value is
+available from the fixed `training.completion` key.
+
+This is a hand-written allowlist evaluator, not a template engine: it supports bounded binary
+arithmetic, exact fixed context keys, and concatenated JSON string literals. Unsupported, malformed,
+zero-division, oversized, and code-like expressions are rejected. It has no filesystem, process,
+environment, network, or database access. The secure comparison always treats the input as data.
+In a real application, keep templates fixed and pass user input as a value, for example
+`const safePreview = renderFixedTemplate(userInput);`; do not concatenate untrusted input into
+template source. Authentication and an owned lab session gate the target. Completion also requires
+the learner's own arithmetic and training-context interactions, verified by the existing server
+validator. Tests cover target gates, metadata privacy, allowed and rejected expressions, literal
+secure rendering, side-effect spies for filesystem and network APIs, per-learner isolation, and the
+frontend workflow. Verification passed with 73 server tests, 13 client tests, workspace type
+checking, lint, production build, Prisma validation, and Git whitespace checks.
 
 ## Setup
 

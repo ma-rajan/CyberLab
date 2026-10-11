@@ -18,6 +18,7 @@ import {
   updateTrainingCsrfSettings,
 } from './isolated-targets/csrf-settings.target.js';
 import { readTrainingFile } from './isolated-targets/path-traversal.target.js';
+import { renderSstiPreview } from './isolated-targets/ssti-preview.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -170,6 +171,12 @@ export const labService = {
     await requireLabTargetSession(userId, slug, 'PATH_TRAVERSAL');
     const result = readTrainingFile(userId, file);
     if (!result) throw new AppError(404, 'FILE_NOT_FOUND', 'Training file not found.');
+    return result;
+  },
+  async renderSstiPreviewTarget(userId: string, slug: string, input: string) {
+    await requireLabTargetSession(userId, slug, 'SSTI_ALLOWLISTED');
+    const result = renderSstiPreview(userId, input);
+    if (!result) throw new AppError(400, 'UNSUPPORTED_TEMPLATE_EXPRESSION', 'The template contains an unsupported or malformed training expression.');
     return result;
   },
 };

@@ -245,6 +245,28 @@ export async function createPathTraversalChallenge(isPublished = true) {
   });
 }
 
+export async function createSstiChallenge(isPublished = true) {
+  return prisma.lab.create({
+    data: {
+      slug: 'ssti-basics',
+      title: 'Server-Side Template Injection',
+      description: 'Allowlisted template preview challenge.',
+      category: 'INJECTION',
+      difficulty: 'BEGINNER',
+      estimatedMinutes: 30,
+      points: 125,
+      isPublished,
+      objective: 'Understand server-side template injection and safe data interpolation.',
+      instructions: 'Compare the vulnerable and secure training previews.',
+      hints: JSON.stringify(['Try {{7*7}}.', 'Compare literal rendering with expression evaluation.']),
+      target: 'Training Template Preview',
+      challengeType: 'SSTI_ALLOWLISTED',
+      validatorType: 'SSTI',
+      flagHash: await bcrypt.hash('SSTI_PREVIEW_CONFIRMED', 12),
+    },
+  });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }

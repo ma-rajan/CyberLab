@@ -34,6 +34,7 @@ const { api } = vi.hoisted(() => ({
     fetchMockResource: vi.fn(),
     searchDirectory: vi.fn(),
     readTrainingFile: vi.fn(),
+    renderSstiPreview: vi.fn(),
     uploadProfileImage: vi.fn(),
     csrfSettings: vi.fn(),
     simulateCsrfNotificationChange: vi.fn(),
@@ -127,6 +128,7 @@ beforeEach(() => {
   api.fetchMockResource.mockResolvedValue({ path: '/internal/admin-config', status: 'ok', message: 'Synthetic internal configuration loaded.', completionToken: 'SSRF_INTERNAL_CONFIG_CONFIRMED' });
   api.searchDirectory.mockResolvedValue({ queryPreview: "SELECT id, username, role FROM mock_users WHERE username = 'alice'", records: [{ id: 3, username: 'auditor', role: 'admin', status: 'internal-review', flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }] });
   api.readTrainingFile.mockResolvedValue({ requestedPath: '../private/maintenance.txt', resolvedPath: '/private/maintenance.txt', content: 'Synthetic training note.', completionToken: 'PATH_TRAVERSAL_CONFIRMED' });
+  api.renderSstiPreview.mockResolvedValue({ vulnerableOutput: 'Preview: 49', secureOutput: 'Preview: {{7*7}}', completionToken: null });
   api.uploadProfileImage.mockResolvedValue({ accepted: true, id: 'upload-1', filename: 'notes.png', declaredMimeType: 'image/png', downloadPath: 'upload-1', message: 'Profile image stored by the isolated training target.', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
   api.csrfSettings.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: false, completionToken: null });
   api.updateCsrfSettingsSecurely.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: true, completionToken: null });
@@ -204,6 +206,26 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'PATH_TRAVERSAL_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('path-traversal', { flag: 'PATH_TRAVERSAL_CONFIRMED' }));
+  });
+
+  it('compares vulnerable and secure SSTI previews and completes with the training value', async () => {
+    const sstiLab = { ...lab, slug: 'ssti-basics', title: 'Server-Side Template Injection', category: 'INJECTION' as const, challengeType: 'SSTI_ALLOWLISTED' };
+    api.lab.mockResolvedValue({ lab: sstiLab });
+    render(<MemoryRouter initialEntries={['/labs/ssti-basics']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Server-Side Template Injection' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Render comparison' }));
+    await waitFor(() => expect(api.renderSstiPreview).toHaveBeenCalledWith('ssti-basics', '{{7*7}}'));
+    expect(await screen.findByText('Preview: 49')).toBeInTheDocument();
+    expect(screen.getByText('Preview: {{7*7}}')).toBeInTheDocument();
+
+    api.renderSstiPreview.mockResolvedValueOnce({ vulnerableOutput: 'Preview: SSTI_PREVIEW_CONFIRMED', secureOutput: 'Preview: {{training.completion}}', completionToken: 'SSTI_PREVIEW_CONFIRMED' });
+    fireEvent.change(screen.getByLabelText('Template input'), { target: { value: '{{training.completion}}' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Render comparison' }));
+    expect(await screen.findByText(/Synthetic completion value/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'SSTI_PREVIEW_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('ssti-basics', { flag: 'SSTI_PREVIEW_CONFIRMED' }));
   });
 
   it('renders the XSS target in a sandboxed iframe and submits its completion value', async () => {

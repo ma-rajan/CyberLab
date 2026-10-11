@@ -100,6 +100,7 @@ export interface ApiProfileUploadResult {
 }
 export interface ApiCsrfSettings { profileName: string; notificationsEnabled: boolean; lastChangeUsedValidCsrfToken: boolean; completionToken?: string | null; }
 export interface ApiTrainingFile { requestedPath: string; resolvedPath: string; content: string; completionToken: string | null; }
+export interface ApiSstiPreview { vulnerableOutput: string; secureOutput: string; completionToken: string | null; }
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -223,6 +224,8 @@ export const api = {
     ),
   readTrainingFile: (slug: string, file: string) =>
     request<ApiTrainingFile>(`/api/labs/${encodeURIComponent(slug)}/read?file=${encodeURIComponent(file)}`),
+  renderSstiPreview: (slug: string, input: string) =>
+    request<ApiSstiPreview>(`/api/labs/${encodeURIComponent(slug)}/render?input=${encodeURIComponent(input)}`),
   uploadProfileImage: (slug: string, file: File) =>
     uploadFile<ApiProfileUploadResult>(`/api/labs/${encodeURIComponent(slug)}/target/upload`, file),
   csrfSettings: (slug: string) => request<ApiCsrfSettings>(`/api/labs/${encodeURIComponent(slug)}/target/settings`),
