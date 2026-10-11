@@ -101,6 +101,28 @@ export interface ApiProfileUploadResult {
 export interface ApiCsrfSettings { profileName: string; notificationsEnabled: boolean; lastChangeUsedValidCsrfToken: boolean; completionToken?: string | null; }
 export interface ApiTrainingFile { requestedPath: string; resolvedPath: string; content: string; completionToken: string | null; }
 export interface ApiSstiPreview { vulnerableOutput: string; secureOutput: string; completionToken: string | null; }
+export interface ApiCorsSimulationInput {
+  origin?: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  headers: Array<{ name: string; value: string }>;
+  credentials: boolean;
+}
+export interface ApiCorsPolicyResult {
+  responseHeaders: Record<string, string>;
+  preflightRequired: boolean;
+  preflightResponseHeaders: Record<string, string> | null;
+  preflightAllowed: boolean | null;
+  actualRequestProcessed: boolean;
+  browserCanReadResponse: boolean;
+  browserExplanation: string;
+  syntheticResponse: string | null;
+}
+export interface ApiCorsSimulation {
+  origin: { supplied: string | null; normalized: string | null; valid: boolean; trusted: boolean };
+  request: { method: string; headers: Array<{ name: string; value: string }>; credentials: boolean; preflightRequired: boolean };
+  policies: { permissive: ApiCorsPolicyResult; allowlist: ApiCorsPolicyResult; wildcardWithCredentials: ApiCorsPolicyResult };
+  completionToken: string | null;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -226,6 +248,8 @@ export const api = {
     request<ApiTrainingFile>(`/api/labs/${encodeURIComponent(slug)}/read?file=${encodeURIComponent(file)}`),
   renderSstiPreview: (slug: string, input: string) =>
     request<ApiSstiPreview>(`/api/labs/${encodeURIComponent(slug)}/render?input=${encodeURIComponent(input)}`),
+  simulateCorsPolicy: (slug: string, input: ApiCorsSimulationInput) =>
+    authPost<ApiCorsSimulation>(`/api/labs/${encodeURIComponent(slug)}/target/cors/simulate`, { ...input }),
   uploadProfileImage: (slug: string, file: File) =>
     uploadFile<ApiProfileUploadResult>(`/api/labs/${encodeURIComponent(slug)}/target/upload`, file),
   csrfSettings: (slug: string) => request<ApiCsrfSettings>(`/api/labs/${encodeURIComponent(slug)}/target/settings`),

@@ -3,6 +3,7 @@ import { hasMismatchedTrainingUpload } from './isolated-targets/file-upload.targ
 import { hasUnprotectedNotificationChange } from './isolated-targets/csrf-settings.target.js';
 import { hasReadRestrictedTrainingFile } from './isolated-targets/path-traversal.target.js';
 import { hasCompletedSstiExercise } from './isolated-targets/ssti-preview.target.js';
+import { hasCompletedCorsExercise } from './isolated-targets/cors-policy.target.js';
 
 export interface LabValidationResult {
   success: boolean;
@@ -102,6 +103,21 @@ const sstiDefinition: LabDefinition = {
     };
   },
 };
+const corsDefinition: LabDefinition = {
+  challengeType: 'CORS_POLICY_SIMULATOR',
+  validate: async (submission, context) => {
+    const flag = typeof submission.flag === 'string' ? submission.flag : '';
+    const accepted = context.validatorType === 'CORS_POLICY' && Boolean(context.flagHash) &&
+      await bcrypt.compare(flag, context.flagHash!) && hasCompletedCorsExercise(context.userId);
+    return {
+      success: accepted,
+      completed: accepted,
+      message: accepted
+        ? 'Verified: you compared permissive and allowlisted CORS behavior, including preflight and credentialed wildcard rules. CORS Policy is complete.'
+        : 'Compare an untrusted origin, the simulated preflight outcomes, and the wildcard credential rule before submitting the completion value.',
+    };
+  },
+};
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
@@ -114,6 +130,7 @@ for (const definition of [
   csrfDefinition,
   pathTraversalDefinition,
   sstiDefinition,
+  corsDefinition,
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {

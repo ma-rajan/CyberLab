@@ -19,6 +19,7 @@ import {
 } from './isolated-targets/csrf-settings.target.js';
 import { readTrainingFile } from './isolated-targets/path-traversal.target.js';
 import { renderSstiPreview } from './isolated-targets/ssti-preview.target.js';
+import { simulateCorsPolicy, type CorsSimulationInput } from './isolated-targets/cors-policy.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -178,5 +179,9 @@ export const labService = {
     const result = renderSstiPreview(userId, input);
     if (!result) throw new AppError(400, 'UNSUPPORTED_TEMPLATE_EXPRESSION', 'The template contains an unsupported or malformed training expression.');
     return result;
+  },
+  async simulateCorsTarget(userId: string, slug: string, input: CorsSimulationInput) {
+    await requireLabTargetSession(userId, slug, 'CORS_POLICY_SIMULATOR');
+    return simulateCorsPolicy(userId, input);
   },
 };

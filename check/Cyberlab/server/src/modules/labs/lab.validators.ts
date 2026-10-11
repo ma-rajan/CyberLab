@@ -67,5 +67,15 @@ export const sstiPreviewSchema = z
   })
   .strict();
 
+export const corsSimulationSchema = z.object({
+  origin: z.string().max(200).optional(),
+  method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']).default('GET'),
+  headers: z.array(z.object({
+    name: z.string().regex(/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,64}$/),
+    value: z.string().max(128).regex(/^[^\r\n]*$/),
+  }).strict()).max(8).default([]),
+  credentials: z.boolean().default(false),
+}).strict();
+
 export const uploadHeadersSchema = z.object({ filename: z.string().min(1).max(120), mimeType: z.string().min(1).max(80) }).strict();
 export const csrfSettingsSchema = z.object({ notificationsEnabled: z.union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')]) }).strict();

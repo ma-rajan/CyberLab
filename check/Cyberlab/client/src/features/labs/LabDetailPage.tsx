@@ -16,6 +16,7 @@ import {
   type ApiCsrfSettings,
   type ApiTrainingFile,
   type ApiSstiPreview,
+  type ApiCorsSimulation,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, hasInteractiveTarget, progressLabel } from './lab-ui';
 
@@ -48,6 +49,12 @@ export function LabDetailPage() {
   const [trainingFile, setTrainingFile] = useState<ApiTrainingFile | null>(null);
   const [sstiInput, setSstiInput] = useState('{{7*7}}');
   const [sstiPreview, setSstiPreview] = useState<ApiSstiPreview | null>(null);
+  const [corsOrigin, setCorsOrigin] = useState('https://attacker.training.test');
+  const [corsMethod, setCorsMethod] = useState<'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'>('GET');
+  const [corsHeaderName, setCorsHeaderName] = useState('');
+  const [corsHeaderValue, setCorsHeaderValue] = useState('demo');
+  const [corsCredentials, setCorsCredentials] = useState(true);
+  const [corsSimulation, setCorsSimulation] = useState<ApiCorsSimulation | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileUploadResult, setProfileUploadResult] = useState<ApiProfileUploadResult | null>(null);
   const [csrfSettings, setCsrfSettings] = useState<ApiCsrfSettings | null>(null);
@@ -200,6 +207,23 @@ export function LabDetailPage() {
     event.preventDefault(); setError(null); setSstiPreview(null); setIsSubmitting(true);
     try { setSstiPreview(await api.renderSstiPreview(slug, sstiInput)); }
     catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to render the training template preview.'); }
+    finally { setIsSubmitting(false); }
+  }
+
+  async function simulateCorsPolicy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setCorsSimulation(null); setIsSubmitting(true);
+    try {
+      const origin = corsOrigin.trim();
+      const headers = corsHeaderName.trim() ? [{ name: corsHeaderName.trim(), value: corsHeaderValue }] : [];
+      const simulation = await api.simulateCorsPolicy(slug, {
+        ...(origin ? { origin } : {}),
+        method: corsMethod,
+        headers,
+        credentials: corsCredentials,
+      });
+      setCorsSimulation(simulation);
+      if (simulation.completionToken) setResult('You compared permissive access, preflight handling, and the credentialed wildcard rule. Submit the completion value below.');
+    } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to run the local CORS policy simulation.'); }
     finally { setIsSubmitting(false); }
   }
 
@@ -468,6 +492,62 @@ export function LabDetailPage() {
             {sstiPreview && <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded border border-red-400/30 p-3"><h3 className="text-sm font-semibold text-red-200">Vulnerable training behavior</h3><pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-200">{sstiPreview.vulnerableOutput}</pre></div><div className="rounded border border-signal/30 p-3"><h3 className="text-sm font-semibold text-signal">Secure behavior</h3><pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-200">{sstiPreview.secureOutput}</pre></div></div>}
             {sstiPreview?.completionToken && <p className="mt-4 rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Synthetic completion value: <code>{sstiPreview.completionToken}</code></p>}
             <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-semibold text-slate-200">Remediation</p><p className="mt-1 text-slate-400">Keep the template fixed and pass untrusted input as a value. Never concatenate user input into template source.</p><code className="mt-2 block break-all font-mono text-xs text-cyber">const safePreview = renderFixedTemplate(userInput);</code></div>
+          </div>
+        )}
+        {isStarted && !isCompleted && lab.challengeType === 'CORS_POLICY_SIMULATOR' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">CORS Policy Simulator</h2>
+            <p className="mt-1 text-sm text-slate-400">This is a local policy calculation using synthetic response data. It does not send a request to the entered origin and does not test actual browser enforcement.</p>
+            <p className="mt-2 text-sm text-slate-400">An origin is the scheme, host, and port together. The secure example trusts only <code>https://app.training.test</code>.</p>
+            <form onSubmit={simulateCorsPolicy} className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm text-slate-300">Simulated Origin
+                <input aria-label="Simulated Origin" value={corsOrigin} onChange={(event) => setCorsOrigin(event.target.value)} placeholder="https://attacker.training.test" className="mt-1 w-full rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white outline-none focus:border-cyber" />
+              </label>
+              <label className="text-sm text-slate-300">Actual request method
+                <select aria-label="CORS request method" value={corsMethod} onChange={(event) => setCorsMethod(event.target.value as typeof corsMethod)} className="mt-1 w-full rounded-md border border-slate-700 bg-ink px-3 py-2 text-white outline-none focus:border-cyber">
+                  <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option><option>PATCH</option>
+                </select>
+              </label>
+              <label className="text-sm text-slate-300">Optional request header name
+                <input aria-label="CORS request header name" value={corsHeaderName} onChange={(event) => setCorsHeaderName(event.target.value)} placeholder="X-Training-Client" className="mt-1 w-full rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white outline-none focus:border-cyber" />
+              </label>
+              <label className="text-sm text-slate-300">Request header value
+                <input aria-label="CORS request header value" value={corsHeaderValue} onChange={(event) => setCorsHeaderValue(event.target.value)} maxLength={128} className="mt-1 w-full rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white outline-none focus:border-cyber" />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300 sm:col-span-2">
+                <input aria-label="Include credentials" type="checkbox" checked={corsCredentials} onChange={(event) => setCorsCredentials(event.target.checked)} className="accent-cyber" />
+                Simulate a credentialed request
+              </label>
+              <button type="submit" disabled={isSubmitting} className="w-fit rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Evaluate policies</button>
+            </form>
+            {corsSimulation && <div className="mt-5 space-y-4">
+              <div className="rounded border border-slate-800 p-3 text-sm">
+                <p className="font-medium text-slate-100">Origin result: {corsSimulation.origin.normalized ?? 'missing or malformed'}{corsSimulation.origin.trusted ? ' — trusted' : ' — untrusted'}</p>
+                <p className="mt-1 text-slate-400">{corsSimulation.request.preflightRequired ? 'The browser would first send an OPTIONS preflight for this method/header combination.' : 'This request is modeled as a simple request and does not need a preflight.'}</p>
+                <p className="mt-1 text-slate-400">The simulated server can process a simple request even when the browser will not expose its response to JavaScript. CORS is not authentication or authorization and does not block every cross-origin request.</p>
+              </div>
+              <div className="grid gap-3 xl:grid-cols-3">
+                {([
+                  ['permissive', 'Permissive origin reflection'],
+                  ['allowlist', 'Explicit trusted-origin allowlist'],
+                  ['wildcardWithCredentials', 'Wildcard with credentials enabled'],
+                ] as const).map(([key, title]) => {
+                  const policy = corsSimulation.policies[key];
+                  return <section key={key} className="rounded border border-slate-800 p-3 text-sm">
+                    <h3 className="font-semibold text-slate-100">{title}</h3>
+                    <p className="mt-2 text-slate-400">Actual request processed by simulated server: <strong className="text-slate-200">{policy.actualRequestProcessed ? 'Yes' : 'No'}</strong></p>
+                    {policy.preflightRequired && <p className="mt-1 text-slate-400">OPTIONS preflight allowed: <strong className="text-slate-200">{policy.preflightAllowed ? 'Yes' : 'No'}</strong></p>}
+                    <p className="mt-2 text-slate-400">Simulated server response headers:</p>
+                    <pre className="mt-1 whitespace-pre-wrap break-words rounded bg-black/30 p-2 text-xs text-cyber">{JSON.stringify(policy.actualRequestProcessed ? policy.responseHeaders : policy.preflightResponseHeaders ?? {}, null, 2)}</pre>
+                    <p className="mt-2 text-slate-400">Simulated browser JavaScript can read response: <strong className={policy.browserCanReadResponse ? 'text-signal' : 'text-red-300'}>{policy.browserCanReadResponse ? 'Yes' : 'No'}</strong></p>
+                    <p className="mt-1 text-slate-400">{policy.browserExplanation}</p>
+                    {policy.syntheticResponse && <p className="mt-2 rounded bg-signal/10 p-2 text-signal">Synthetic data exposed to simulated script: {policy.syntheticResponse}</p>}
+                  </section>;
+                })}
+              </div>
+              {corsSimulation.completionToken && <p className="rounded border border-signal/40 bg-signal/10 px-3 py-2 text-sm text-signal">Required comparisons completed. Synthetic completion value: <code>{corsSimulation.completionToken}</code></p>}
+            </div>}
+            <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-semibold text-slate-200">Remediation</p><p className="mt-1 text-slate-400">Return CORS headers only for exact trusted origins, methods, and headers. Treat CORS as a browser response-sharing policy; enforce identity and permissions separately. A wildcard origin cannot be used to grant credentialed browser access.</p><code className="mt-2 block break-all font-mono text-xs text-cyber">if (trustedOrigins.has(origin)) response.setHeader('Access-Control-Allow-Origin', origin);</code></div>
           </div>
         )}
         {isStarted && !isCompleted && lab.challengeType === 'CSRF' && (

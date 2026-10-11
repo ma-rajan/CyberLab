@@ -7,6 +7,7 @@ import { authRateLimitStore } from '../../src/middleware/auth-rate-limit.js';
 import { resetTrainingCsrfSettings } from '../../src/modules/labs/isolated-targets/csrf-settings.target.js';
 import { resetTrainingFileReads } from '../../src/modules/labs/isolated-targets/path-traversal.target.js';
 import { resetSstiExerciseState } from '../../src/modules/labs/isolated-targets/ssti-preview.target.js';
+import { resetCorsExerciseState } from '../../src/modules/labs/isolated-targets/cors-policy.target.js';
 
 let testUploadRoot: string | undefined;
 
@@ -15,6 +16,7 @@ beforeEach(async () => {
   resetTrainingCsrfSettings();
   resetTrainingFileReads();
   resetSstiExerciseState();
+  resetCorsExerciseState();
   await prisma.labSession.deleteMany();
   await prisma.labProgress.deleteMany();
   await prisma.lab.deleteMany();

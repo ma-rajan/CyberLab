@@ -15,6 +15,7 @@ async function main() {
   const csrfFlagHash = await bcrypt.hash('CSRF_NOTIFICATION_CHANGE_CONFIRMED', 12);
   const pathTraversalFlagHash = await bcrypt.hash('PATH_TRAVERSAL_CONFIRMED', 12);
   const sstiFlagHash = await bcrypt.hash('SSTI_PREVIEW_CONFIRMED', 12);
+  const corsFlagHash = await bcrypt.hash('CORS_POLICY_READ_CONFIRMED', 12);
   await prisma.appSetting.upsert({
     where: { key: 'platform_name' },
     update: { value: 'CyberLab' },
@@ -22,6 +23,29 @@ async function main() {
   });
 
   const labs = [
+    {
+      slug: 'cors-policy',
+      title: 'CORS Policy Misconfiguration',
+      description: 'Compare a permissive simulated cross-origin policy with an explicit trusted-origin allowlist.',
+      category: 'WEB_SECURITY' as const,
+      difficulty: 'BEGINNER' as const,
+      estimatedMinutes: 25,
+      points: 125,
+      isPublished: true,
+      objective: 'Understand how origins, preflight policy, credentials, and browser response readability interact without confusing CORS with authentication or authorization.',
+      instructions: 'This is a local policy simulation using synthetic response data; it does not contact an origin or test your browser. Start with a simple credentialed GET from https://attacker.training.test and compare the permissive and secure policies. Then use PUT with the X-Training-Client header to inspect the simulated OPTIONS preflight. Compare the server response headers with the simulated browser readability result, and inspect why the wildcard-plus-credentials example remains unreadable. The secure policy trusts only https://app.training.test.',
+      target: 'CORS Policy Simulator — POST /api/labs/cors-policy/target/cors/simulate',
+      challengeType: 'CORS_POLICY_SIMULATOR',
+      validatorType: 'CORS_POLICY',
+      flagHash: corsFlagHash,
+      hints: JSON.stringify([
+        'An origin includes its scheme, hostname, and port. A different scheme or port is a different origin.',
+        'A simple GET can reach the server even when its response is not readable to cross-origin JavaScript.',
+        'A non-simple method or custom header is checked using an OPTIONS preflight before the browser sends the actual request.',
+        'With credentials, Access-Control-Allow-Origin must name the requesting origin; a wildcard cannot authorize credentialed response access.',
+        'CORS controls browser response access. It is not authentication or authorization and does not stop every cross-origin request.',
+      ]),
+    },
     {
       slug: 'ssti-basics',
       title: 'Server-Side Template Injection',

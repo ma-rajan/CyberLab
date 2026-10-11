@@ -12,6 +12,7 @@ const interactiveChallengeTypes = new Set([
   'CSRF',
   'PATH_TRAVERSAL',
   'SSTI_ALLOWLISTED',
+  'CORS_POLICY_SIMULATOR',
 ]);
 
 function words(value: string) {

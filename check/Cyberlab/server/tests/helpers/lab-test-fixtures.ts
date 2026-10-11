@@ -267,6 +267,28 @@ export async function createSstiChallenge(isPublished = true) {
   });
 }
 
+export async function createCorsChallenge(isPublished = true) {
+  return prisma.lab.create({
+    data: {
+      slug: 'cors-policy',
+      title: 'CORS Policy Misconfiguration',
+      description: 'Compare permissive and allowlisted simulated CORS policies.',
+      category: 'WEB_SECURITY',
+      difficulty: 'BEGINNER',
+      estimatedMinutes: 25,
+      points: 125,
+      isPublished,
+      objective: 'Understand origin matching, preflight, credentials, and browser response readability.',
+      instructions: 'Compare the local synthetic CORS policy simulations.',
+      hints: JSON.stringify(['Try a simple request, then a preflighted request.']),
+      target: 'CORS Policy Simulator',
+      challengeType: 'CORS_POLICY_SIMULATOR',
+      validatorType: 'CORS_POLICY',
+      flagHash: await bcrypt.hash('CORS_POLICY_READ_CONFIRMED', 12),
+    },
+  });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }

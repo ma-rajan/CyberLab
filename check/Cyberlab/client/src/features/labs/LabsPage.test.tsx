@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const lab = {
   id: 'lab-1',
@@ -35,6 +35,7 @@ const { api } = vi.hoisted(() => ({
     searchDirectory: vi.fn(),
     readTrainingFile: vi.fn(),
     renderSstiPreview: vi.fn(),
+    simulateCorsPolicy: vi.fn(),
     uploadProfileImage: vi.fn(),
     csrfSettings: vi.fn(),
     simulateCsrfNotificationChange: vi.fn(),
@@ -47,6 +48,8 @@ vi.mock('../../lib/api', () => ({ api, ApiError: class ApiError extends Error {}
 
 import { LabDetailPage } from './LabDetailPage';
 import { LabsPage } from './LabsPage';
+
+afterEach(cleanup);
 
 beforeEach(() => {
   api.labs.mockResolvedValue({ labs: [lab] });
@@ -129,6 +132,8 @@ beforeEach(() => {
   api.searchDirectory.mockResolvedValue({ queryPreview: "SELECT id, username, role FROM mock_users WHERE username = 'alice'", records: [{ id: 3, username: 'auditor', role: 'admin', status: 'internal-review', flag: 'SQLI_DIRECTORY_ACCESS_CONFIRMED' }] });
   api.readTrainingFile.mockResolvedValue({ requestedPath: '../private/maintenance.txt', resolvedPath: '/private/maintenance.txt', content: 'Synthetic training note.', completionToken: 'PATH_TRAVERSAL_CONFIRMED' });
   api.renderSstiPreview.mockResolvedValue({ vulnerableOutput: 'Preview: 49', secureOutput: 'Preview: {{7*7}}', completionToken: null });
+  const corsPolicyResult = { responseHeaders: {}, preflightRequired: false, preflightResponseHeaders: null, preflightAllowed: null, actualRequestProcessed: true, browserCanReadResponse: false, browserExplanation: 'Simulated CORS result.', syntheticResponse: null };
+  api.simulateCorsPolicy.mockResolvedValue({ origin: { supplied: 'https://attacker.training.test', normalized: 'https://attacker.training.test', valid: true, trusted: false }, request: { method: 'GET', headers: [], credentials: true, preflightRequired: false }, policies: { permissive: { ...corsPolicyResult, browserCanReadResponse: true }, allowlist: corsPolicyResult, wildcardWithCredentials: corsPolicyResult }, completionToken: null });
   api.uploadProfileImage.mockResolvedValue({ accepted: true, id: 'upload-1', filename: 'notes.png', declaredMimeType: 'image/png', downloadPath: 'upload-1', message: 'Profile image stored by the isolated training target.', completionToken: 'FILE_UPLOAD_MISMATCH_CONFIRMED' });
   api.csrfSettings.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: false, completionToken: null });
   api.updateCsrfSettingsSecurely.mockResolvedValue({ profileName: 'Training Victim', notificationsEnabled: true, lastChangeUsedValidCsrfToken: true, completionToken: null });
@@ -226,6 +231,41 @@ describe('lab pages', () => {
     fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'SSTI_PREVIEW_CONFIRMED' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('ssti-basics', { flag: 'SSTI_PREVIEW_CONFIRMED' }));
+  });
+
+  it('simulates CORS response readability and submits the server-validated completion value', async () => {
+    const corsLab = { ...lab, slug: 'cors-policy', title: 'CORS Policy Misconfiguration', category: 'WEB_SECURITY' as const, challengeType: 'CORS_POLICY_SIMULATOR' };
+    api.lab.mockResolvedValue({ lab: corsLab });
+    render(<MemoryRouter initialEntries={['/labs/cors-policy']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'CORS Policy Misconfiguration' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Evaluate policies' }));
+    await waitFor(() => expect(api.simulateCorsPolicy).toHaveBeenCalledWith('cors-policy', {
+      origin: 'https://attacker.training.test', method: 'GET', headers: [], credentials: true,
+    }));
+    expect((await screen.findAllByText(/Simulated browser JavaScript can read response/)).length).toBe(3);
+    expect(screen.getByText(/does not send a request to the entered origin/)).toBeInTheDocument();
+
+    api.simulateCorsPolicy.mockResolvedValueOnce({
+      origin: { supplied: 'https://attacker.training.test', normalized: 'https://attacker.training.test', valid: true, trusted: false },
+      request: { method: 'PUT', headers: [{ name: 'X-Training-Client', value: 'demo' }], credentials: true, preflightRequired: true },
+      policies: {
+        permissive: { responseHeaders: {}, preflightRequired: true, preflightResponseHeaders: {}, preflightAllowed: true, actualRequestProcessed: true, browserCanReadResponse: true, browserExplanation: 'Allowed by the permissive policy.', syntheticResponse: null },
+        allowlist: { responseHeaders: {}, preflightRequired: true, preflightResponseHeaders: {}, preflightAllowed: false, actualRequestProcessed: false, browserCanReadResponse: false, browserExplanation: 'Preflight denied.', syntheticResponse: null },
+        wildcardWithCredentials: { responseHeaders: {}, preflightRequired: true, preflightResponseHeaders: {}, preflightAllowed: false, actualRequestProcessed: false, browserCanReadResponse: false, browserExplanation: 'Wildcard credentials rejected.', syntheticResponse: null },
+      },
+      completionToken: 'CORS_POLICY_READ_CONFIRMED',
+    });
+    fireEvent.change(screen.getByLabelText('CORS request method'), { target: { value: 'PUT' } });
+    fireEvent.change(screen.getByLabelText('CORS request header name'), { target: { value: 'X-Training-Client' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Evaluate policies' }));
+    await waitFor(() => expect(api.simulateCorsPolicy).toHaveBeenLastCalledWith('cors-policy', {
+      origin: 'https://attacker.training.test', method: 'PUT', headers: [{ name: 'X-Training-Client', value: 'demo' }], credentials: true,
+    }));
+    expect(await screen.findByText(/Required comparisons completed/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Flag submission'), { target: { value: 'CORS_POLICY_READ_CONFIRMED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('cors-policy', { flag: 'CORS_POLICY_READ_CONFIRMED' }));
   });
 
   it('renders the XSS target in a sandboxed iframe and submits its completion value', async () => {

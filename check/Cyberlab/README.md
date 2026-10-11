@@ -77,6 +77,8 @@ migrations remain at the repository root and are shared by the server and seed c
 | Phase 13 — Isolated CSRF Challenge | ✅ Completed |
 | Phase 14 — Isolated Path Traversal Challenge | ✅ Completed |
 | Phase 15 — Isolated SSTI Training Lab | ✅ Completed |
+| Phase 16 — File Upload Storage Quotas and Lifecycle Controls | ✅ Completed |
+| Phase 17 — Isolated CORS Policy Lab | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -155,6 +157,7 @@ Secure CyberLab Platform
 │   │   ├── Mock User Directory SQLi target (fixed synthetic records)
 │   │   ├── Training File Viewer Path Traversal target (fixed virtual documents)
 │   │   ├── Training Template SSTI target (allowlisted expressions and fixed data)
+│   │   ├── CORS Policy target (local synthetic policy evaluation)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -353,6 +356,29 @@ validator. Tests cover target gates, metadata privacy, allowed and rejected expr
 secure rendering, side-effect spies for filesystem and network APIs, per-learner isolation, and the
 frontend workflow. Verification passed with 73 server tests, 13 client tests, workspace type
 checking, lint, production build, Prisma validation, and Git whitespace checks.
+
+## Phase 17 — Isolated CORS Policy Lab
+
+**CORS Policy Misconfiguration** is available after starting the lab at
+`POST /api/labs/cors-policy/target/cors/simulate`. The simulator compares permissive origin
+reflection, an explicit allowlist that trusts only `https://app.training.test`, and a wildcard
+response that also advertises credentials. Inputs contain only an origin string, method, optional
+headers, and a credential setting. The server evaluates these values locally against fixed
+synthetic response data; it does not contact the entered origin or test actual browser behavior.
+
+The exercise shows how scheme, host, and port form an origin, when a request requires a simulated
+`OPTIONS` preflight, and whether the requested method and headers pass each policy. Its results
+separate response headers and whether the modeled browser would expose the response to JavaScript.
+The wildcard-plus-credentials example remains unreadable to JavaScript. The lab also explains that
+CORS is not authentication or authorization and does not prevent every cross-origin request. The
+production CORS middleware remains origin-restricted and is not changed by this training target.
+
+The target requires authentication, an owned lab session, and the platform CSRF token. Completion
+requires a learner-owned simple-request exposure comparison and a preflight comparison, then
+server-side validation of the synthetic completion value. Tests cover metadata privacy, target
+gates, origin parsing, method and header policy, wildcard credentials, learner isolation, and
+completion validation. Verification passed with 94 server tests and 14 client tests, server and
+client type checks, lint, production builds, Prisma schema validation, and Git whitespace checks.
 
 ## Setup
 
