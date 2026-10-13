@@ -13,6 +13,7 @@ const interactiveChallengeTypes = new Set([
   'PATH_TRAVERSAL',
   'SSTI_ALLOWLISTED',
   'CORS_POLICY_SIMULATOR',
+  'COMMAND_INJECTION_SIMULATOR',
 ]);
 
 function words(value: string) {

@@ -24,6 +24,27 @@ async function main() {
 
   const labs = [
     {
+      slug: 'command-injection',
+      title: 'Command Injection',
+      description: 'Compare a bounded command-string simulator with a fixed-operation diagnostic interface.',
+      category: 'INJECTION' as const,
+      difficulty: 'BEGINNER' as const,
+      estimatedMinutes: 25,
+      points: 125,
+      isPublished: true,
+      objective: 'Recognize how untrusted text can alter command interpretation, why token filtering is not a security boundary, and how fixed operations treat input as data.',
+      instructions: 'Start with vulnerable mode and leave the input blank to see the normal synthetic status result. Then enter && audit to demonstrate how the limited training interpreter can add a synthetic audit operation even though its simple filter strips semicolons. Repeat the same input in secure mode: the fixed status operation runs and the text is displayed only as data. No operating-system command is executed. After both comparisons, type verify in the submission field to ask the server to validate your recorded exercise.',
+      target: 'Synthetic Diagnostics — POST /api/labs/command-injection/target/command-injection/simulate',
+      challengeType: 'COMMAND_INJECTION_SIMULATOR',
+      validatorType: 'COMMAND_INJECTION',
+      flagHash: null,
+      hints: JSON.stringify([
+        'Run vulnerable mode once with no extra input to observe the baseline operation.',
+        'The vulnerable simulator removes semicolons but still recognizes a small set of training tokens.',
+        'Compare the same input in secure mode. That mode always chooses status and handles the extra text as data.',
+      ]),
+    },
+    {
       slug: 'cors-policy',
       title: 'CORS Policy Misconfiguration',
       description: 'Compare a permissive simulated cross-origin policy with an explicit trusted-origin allowlist.',

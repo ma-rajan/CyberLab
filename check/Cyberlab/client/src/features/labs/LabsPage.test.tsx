@@ -36,6 +36,7 @@ const { api } = vi.hoisted(() => ({
     readTrainingFile: vi.fn(),
     renderSstiPreview: vi.fn(),
     simulateCorsPolicy: vi.fn(),
+    simulateCommandInjection: vi.fn(),
     uploadProfileImage: vi.fn(),
     csrfSettings: vi.fn(),
     simulateCsrfNotificationChange: vi.fn(),
@@ -107,6 +108,7 @@ beforeEach(() => {
       lab,
     },
   });
+  api.simulateCommandInjection.mockResolvedValue({ mode: 'vulnerable', filterApplied: true, operations: [{ operation: 'status', output: 'Synthetic status.' }, { operation: 'audit', output: 'Synthetic audit.' }], inputTreatment: 'Training token interpreted.', exerciseReady: false });
   api.searchProducts.mockResolvedValue({
     queryPreview: "SELECT name FROM products WHERE name LIKE '%' OR '1'='1%'",
     results: [
@@ -417,5 +419,45 @@ describe('lab pages', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
     await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('csrf', { flag: 'CSRF_NOTIFICATION_CHANGE_CONFIRMED' }));
     expect(await within(view.container).findByText('Completed — 100 points')).toBeInTheDocument();
+  });
+
+  it('loads the command simulator, reports validation errors, compares modes, and verifies completion', async () => {
+    const commandLab = { ...lab, slug: 'command-injection', title: 'Command Injection', category: 'INJECTION' as const, points: 125, challengeType: 'COMMAND_INJECTION_SIMULATOR' };
+    api.lab.mockResolvedValue({ lab: commandLab });
+    api.simulateCommandInjection.mockRejectedValueOnce(new Error('Invalid synthetic input.'));
+    const view = render(<MemoryRouter initialEntries={['/labs/command-injection']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Command Injection' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    expect(await screen.findByRole('heading', { name: 'Synthetic Diagnostics Simulator' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Additional training input'), { target: { value: '&& unsupported' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run Synthetic Simulation' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to run the synthetic diagnostics simulator.');
+
+    fireEvent.change(screen.getByLabelText('Additional training input'), { target: { value: '&& audit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run Synthetic Simulation' }));
+    await waitFor(() => expect(api.simulateCommandInjection).toHaveBeenLastCalledWith('command-injection', { mode: 'vulnerable', input: '&& audit' }));
+    expect(await screen.findByText('Synthetic audit.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Simulation mode'), { target: { value: 'secure' } });
+    api.simulateCommandInjection.mockResolvedValueOnce({ mode: 'secure', filterApplied: false, operations: [{ operation: 'status', output: 'Synthetic status.' }], inputTreatment: 'Input is data.', exerciseReady: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Run Synthetic Simulation' }));
+    await waitFor(() => expect(api.simulateCommandInjection).toHaveBeenLastCalledWith('command-injection', { mode: 'secure', input: '&& audit' }));
+    expect(await screen.findByText(/Both comparisons are recorded/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Exercise verification'), { target: { value: 'verify' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('command-injection', { confirmation: true }));
+    expect(await within(view.container).findByText('Completed — 125 points')).toBeInTheDocument();
+  });
+
+  it('shows the loading state while command-injection lab metadata is pending', async () => {
+    const commandLab = { ...lab, slug: 'command-injection', title: 'Command Injection', points: 125, challengeType: 'COMMAND_INJECTION_SIMULATOR' };
+    let resolveLab: ((value: { lab: typeof commandLab }) => void) | undefined;
+    api.lab.mockImplementationOnce(() => new Promise((resolve) => { resolveLab = resolve; }));
+    render(<MemoryRouter initialEntries={['/labs/command-injection']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(screen.getByText('Loading lab…')).toBeInTheDocument();
+    resolveLab?.({ lab: commandLab });
+    expect(await screen.findByRole('heading', { name: 'Command Injection' })).toBeInTheDocument();
   });
 });

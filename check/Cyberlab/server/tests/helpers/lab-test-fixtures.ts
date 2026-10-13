@@ -289,6 +289,28 @@ export async function createCorsChallenge(isPublished = true) {
   });
 }
 
+export async function createCommandInjectionChallenge(isPublished = true) {
+  return prisma.lab.create({
+    data: {
+      slug: 'command-injection',
+      title: 'Command Injection',
+      description: 'Bounded synthetic diagnostics challenge.',
+      category: 'INJECTION',
+      difficulty: 'BEGINNER',
+      estimatedMinutes: 25,
+      points: 125,
+      isPublished,
+      objective: 'Understand unsafe command interpretation and fixed-operation remediation.',
+      instructions: 'Compare vulnerable and secure modes.',
+      hints: JSON.stringify(['Try && audit in vulnerable mode.', 'Repeat it in secure mode.']),
+      target: 'Synthetic Diagnostics',
+      challengeType: 'COMMAND_INJECTION_SIMULATOR',
+      validatorType: 'COMMAND_INJECTION',
+      flagHash: null,
+    },
+  });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }

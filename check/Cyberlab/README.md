@@ -79,6 +79,7 @@ migrations remain at the repository root and are shared by the server and seed c
 | Phase 15 — Isolated SSTI Training Lab | ✅ Completed |
 | Phase 16 — File Upload Storage Quotas and Lifecycle Controls | ✅ Completed |
 | Phase 17 — Isolated CORS Policy Lab | ✅ Completed |
+| Phase 19 — Isolated Command Injection Lab | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -158,6 +159,7 @@ Secure CyberLab Platform
 │   │   ├── Training File Viewer Path Traversal target (fixed virtual documents)
 │   │   ├── Training Template SSTI target (allowlisted expressions and fixed data)
 │   │   ├── CORS Policy target (local synthetic policy evaluation)
+│   │   ├── Synthetic Diagnostics command-injection target (fixed in-memory parser)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -379,6 +381,27 @@ server-side validation of the synthetic completion value. Tests cover metadata p
 gates, origin parsing, method and header policy, wildcard credentials, learner isolation, and
 completion validation. Verification passed with 94 server tests and 14 client tests, server and
 client type checks, lint, production builds, Prisma schema validation, and Git whitespace checks.
+
+## Phase 19 — Isolated Command Injection Lab
+
+**Command Injection** is available after starting the lab at
+`POST /api/labs/command-injection/target/command-injection/simulate`. The vulnerable mode models a
+diagnostics status command with a deliberately weak semicolon filter. Its tiny in-memory parser
+recognizes only the synthetic `&& audit` token, allowing learners to compare the baseline status
+result with an added mock audit operation. Unsupported syntax and operations are rejected.
+
+The secure mode selects only the fixed `status` operation and treats the same input as display data.
+The simulator never calls a process API or shell, executes an operating-system command, reads host
+files or environment values, accesses Prisma data, or makes network requests. Inputs are limited to
+120 characters; target access requires authentication, an active learner-owned lab session, and the
+normal CSRF token. Interaction state is keyed by that lab session. Completion is recorded only after
+the server observes both the vulnerable interaction and its secure comparison, then validates the
+learner's explicit verification request. No completion value is returned by the target.
+
+Server tests cover authentication, CSRF and active-session gates, bounded syntax, secure-mode data
+handling, learner isolation, completion conditions, metadata privacy, and the absence of process,
+filesystem, and fetch calls by the simulator. The frontend test covers target loading, validation
+feedback, both modes, and server-validated completion.
 
 ## Setup
 

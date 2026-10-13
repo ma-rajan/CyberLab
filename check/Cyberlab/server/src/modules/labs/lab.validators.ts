@@ -77,5 +77,10 @@ export const corsSimulationSchema = z.object({
   credentials: z.boolean().default(false),
 }).strict();
 
+export const commandInjectionSimulationSchema = z.object({
+  mode: z.enum(['vulnerable', 'secure']),
+  input: z.string().max(120),
+}).strict();
+
 export const uploadHeadersSchema = z.object({ filename: z.string().min(1).max(120), mimeType: z.string().min(1).max(80) }).strict();
 export const csrfSettingsSchema = z.object({ notificationsEnabled: z.union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')]) }).strict();

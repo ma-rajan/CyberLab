@@ -17,6 +17,7 @@ import {
   type ApiTrainingFile,
   type ApiSstiPreview,
   type ApiCorsSimulation,
+  type ApiCommandInjectionSimulation,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, hasInteractiveTarget, progressLabel } from './lab-ui';
 
@@ -55,6 +56,9 @@ export function LabDetailPage() {
   const [corsHeaderValue, setCorsHeaderValue] = useState('demo');
   const [corsCredentials, setCorsCredentials] = useState(true);
   const [corsSimulation, setCorsSimulation] = useState<ApiCorsSimulation | null>(null);
+  const [commandInput, setCommandInput] = useState('');
+  const [commandMode, setCommandMode] = useState<'vulnerable' | 'secure'>('vulnerable');
+  const [commandSimulation, setCommandSimulation] = useState<ApiCommandInjectionSimulation | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileUploadResult, setProfileUploadResult] = useState<ApiProfileUploadResult | null>(null);
   const [csrfSettings, setCsrfSettings] = useState<ApiCsrfSettings | null>(null);
@@ -111,7 +115,9 @@ export function LabDetailPage() {
       const response = await api.submitLab(
         slug,
         submission
-          ? hasInteractiveTarget(lab?.challengeType ?? '')
+          ? lab?.challengeType === 'COMMAND_INJECTION_SIMULATOR'
+            ? { confirmation: submission.trim().toLowerCase() === 'verify' }
+            : hasInteractiveTarget(lab?.challengeType ?? '')
             ? { flag: submission }
             : { confirmation: submission }
           : {},
@@ -225,6 +231,15 @@ export function LabDetailPage() {
       if (simulation.completionToken) setResult('You compared permissive access, preflight handling, and the credentialed wildcard rule. Submit the completion value below.');
     } catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : 'Unable to run the local CORS policy simulation.'); }
     finally { setIsSubmitting(false); }
+  }
+
+  async function simulateCommandTarget(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setCommandSimulation(null); setIsSubmitting(true);
+    try {
+      setCommandSimulation(await api.simulateCommandInjection(slug, { mode: commandMode, input: commandInput }));
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'Unable to run the synthetic diagnostics simulator.');
+    } finally { setIsSubmitting(false); }
   }
 
   async function uploadProfileImage(event: FormEvent<HTMLFormElement>) {
@@ -494,6 +509,30 @@ export function LabDetailPage() {
             <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-semibold text-slate-200">Remediation</p><p className="mt-1 text-slate-400">Keep the template fixed and pass untrusted input as a value. Never concatenate user input into template source.</p><code className="mt-2 block break-all font-mono text-xs text-cyber">const safePreview = renderFixedTemplate(userInput);</code></div>
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'COMMAND_INJECTION_SIMULATOR' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Synthetic Diagnostics Simulator</h2>
+            <p className="mt-1 text-sm text-slate-400">This in-memory parser recognizes only fixed training tokens. It never launches a process or runs an operating-system command.</p>
+            <form onSubmit={simulateCommandTarget} className="mt-4 space-y-3">
+              <label className="block text-sm text-slate-200" htmlFor="command-mode">Simulation mode</label>
+              <select id="command-mode" aria-label="Simulation mode" value={commandMode} onChange={(event) => setCommandMode(event.target.value as typeof commandMode)} className="w-full rounded-md border border-slate-700 bg-ink px-3 py-2 text-white">
+                <option value="vulnerable">Vulnerable command-string mode</option>
+                <option value="secure">Secure fixed-operation mode</option>
+              </select>
+              <label className="block text-sm text-slate-200" htmlFor="command-input">Additional training input</label>
+              <input id="command-input" aria-label="Additional training input" value={commandInput} maxLength={120} onChange={(event) => setCommandInput(event.target.value)} placeholder="Try && audit" className="w-full rounded-md border border-slate-700 bg-ink px-3 py-2 font-mono text-white" />
+              <button type="submit" disabled={isSubmitting} className="rounded-md border border-cyber/60 px-4 py-2 font-semibold text-cyber disabled:opacity-60">Run Synthetic Simulation</button>
+            </form>
+            <p className="mt-3 text-xs text-slate-500">The vulnerable mode strips semicolons but accepts the documented synthetic && audit token. Secure mode selects only status and displays the same input as data. This demonstrates why filtering syntax is weaker than avoiding command interpretation.</p>
+            {commandSimulation && <div role="status" className="mt-4 space-y-3 rounded border border-slate-800 p-3 text-sm">
+              <p className="font-medium text-slate-100">{commandSimulation.mode === 'vulnerable' ? 'Vulnerable mode' : 'Secure mode'} — {commandSimulation.filterApplied ? 'simple filter applied' : 'fixed operation selected'}</p>
+              <ul className="space-y-2">{commandSimulation.operations.map((operation, index) => <li key={`${operation.operation}-${index}`}><span className="font-mono text-cyber">{operation.operation}</span><pre className="mt-1 whitespace-pre-wrap text-slate-300">{operation.output}</pre></li>)}</ul>
+              <p className="text-slate-400">{commandSimulation.inputTreatment}</p>
+              {commandSimulation.exerciseReady && <p className="text-signal">Both comparisons are recorded. Type verify below to request server validation.</p>}
+            </div>}
+            <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-semibold text-slate-200">Remediation</p><p className="mt-1 text-slate-400">Expose fixed diagnostic operations and pass typed arguments as data. Do not build command strings from user input or rely on character filtering.</p><code className="mt-2 block font-mono text-xs text-cyber">runDiagnostic('status', validatedOptions)</code></div>
+          </div>
+        )}
         {isStarted && !isCompleted && lab.challengeType === 'CORS_POLICY_SIMULATOR' && (
           <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
             <h2 className="text-lg font-semibold text-white">CORS Policy Simulator</h2>
@@ -614,7 +653,9 @@ export function LabDetailPage() {
         {isStarted && !isCompleted && (
           <form onSubmit={submitLab} className="space-y-3">
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
-              {hasInteractiveTarget(lab.challengeType)
+              {lab.challengeType === 'COMMAND_INJECTION_SIMULATOR'
+                ? 'Exercise verification'
+                : hasInteractiveTarget(lab.challengeType)
                 ? 'Flag submission'
                 : 'Submission'}
             </label>
@@ -623,7 +664,9 @@ export function LabDetailPage() {
               value={submission}
               onChange={(event) => setSubmission(event.target.value)}
               placeholder={
-                hasInteractiveTarget(lab.challengeType)
+                lab.challengeType === 'COMMAND_INJECTION_SIMULATOR'
+                  ? 'Type verify after both comparisons'
+                  : hasInteractiveTarget(lab.challengeType)
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'
               }

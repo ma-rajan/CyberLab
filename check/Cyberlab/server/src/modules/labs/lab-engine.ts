@@ -4,6 +4,7 @@ import { hasUnprotectedNotificationChange } from './isolated-targets/csrf-settin
 import { hasReadRestrictedTrainingFile } from './isolated-targets/path-traversal.target.js';
 import { hasCompletedSstiExercise } from './isolated-targets/ssti-preview.target.js';
 import { hasCompletedCorsExercise } from './isolated-targets/cors-policy.target.js';
+import { hasCompletedCommandInjectionExercise } from './isolated-targets/command-injection.target.js';
 
 export interface LabValidationResult {
   success: boolean;
@@ -23,6 +24,8 @@ export interface LabValidationContext {
   validatorType: string;
   flagHash: string | null;
   userId: string;
+  labSessionId?: string;
+  sessionStatus?: string;
 }
 
 // Validators receive data only and never evaluate it as code, SQL, a shell command, or JavaScript.
@@ -118,6 +121,21 @@ const corsDefinition: LabDefinition = {
     };
   },
 };
+const commandInjectionDefinition: LabDefinition = {
+  challengeType: 'COMMAND_INJECTION_SIMULATOR',
+  validate: (submission, context) => {
+    const accepted = context.validatorType === 'COMMAND_INJECTION' &&
+      context.sessionStatus === 'ACTIVE' && submission.confirmation === true &&
+      Boolean(context.labSessionId) && hasCompletedCommandInjectionExercise(context.labSessionId!);
+    return {
+      success: accepted,
+      completed: accepted,
+      message: accepted
+        ? 'Verified: the simulator showed injected command interpretation and the fixed-operation comparison. Command Injection is complete.'
+        : 'Demonstrate the synthetic injection, compare secure handling, then verify the exercise.',
+    };
+  },
+};
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
@@ -131,6 +149,7 @@ for (const definition of [
   pathTraversalDefinition,
   sstiDefinition,
   corsDefinition,
+  commandInjectionDefinition,
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {

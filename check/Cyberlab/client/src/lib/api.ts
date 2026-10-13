@@ -123,6 +123,13 @@ export interface ApiCorsSimulation {
   policies: { permissive: ApiCorsPolicyResult; allowlist: ApiCorsPolicyResult; wildcardWithCredentials: ApiCorsPolicyResult };
   completionToken: string | null;
 }
+export interface ApiCommandInjectionSimulation {
+  mode: 'vulnerable' | 'secure';
+  filterApplied: boolean;
+  operations: Array<{ operation: 'status' | 'audit'; output: string }>;
+  inputTreatment: string;
+  exerciseReady: boolean;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -250,6 +257,8 @@ export const api = {
     request<ApiSstiPreview>(`/api/labs/${encodeURIComponent(slug)}/render?input=${encodeURIComponent(input)}`),
   simulateCorsPolicy: (slug: string, input: ApiCorsSimulationInput) =>
     authPost<ApiCorsSimulation>(`/api/labs/${encodeURIComponent(slug)}/target/cors/simulate`, { ...input }),
+  simulateCommandInjection: (slug: string, input: { mode: 'vulnerable' | 'secure'; input: string }) =>
+    authPost<ApiCommandInjectionSimulation>(`/api/labs/${encodeURIComponent(slug)}/target/command-injection/simulate`, input),
   uploadProfileImage: (slug: string, file: File) =>
     uploadFile<ApiProfileUploadResult>(`/api/labs/${encodeURIComponent(slug)}/target/upload`, file),
   csrfSettings: (slug: string) => request<ApiCsrfSettings>(`/api/labs/${encodeURIComponent(slug)}/target/settings`),

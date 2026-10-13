@@ -8,6 +8,7 @@ import { resetTrainingCsrfSettings } from '../../src/modules/labs/isolated-targe
 import { resetTrainingFileReads } from '../../src/modules/labs/isolated-targets/path-traversal.target.js';
 import { resetSstiExerciseState } from '../../src/modules/labs/isolated-targets/ssti-preview.target.js';
 import { resetCorsExerciseState } from '../../src/modules/labs/isolated-targets/cors-policy.target.js';
+import { resetCommandInjectionExerciseState } from '../../src/modules/labs/isolated-targets/command-injection.target.js';
 
 let testUploadRoot: string | undefined;
 
@@ -17,6 +18,7 @@ beforeEach(async () => {
   resetTrainingFileReads();
   resetSstiExerciseState();
   resetCorsExerciseState();
+  resetCommandInjectionExerciseState();
   await prisma.labSession.deleteMany();
   await prisma.labProgress.deleteMany();
   await prisma.lab.deleteMany();

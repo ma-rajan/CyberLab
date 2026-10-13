@@ -20,6 +20,7 @@ import {
 import { readTrainingFile } from './isolated-targets/path-traversal.target.js';
 import { renderSstiPreview } from './isolated-targets/ssti-preview.target.js';
 import { simulateCorsPolicy, type CorsSimulationInput } from './isolated-targets/cors-policy.target.js';
+import { simulateCommandInjection, type CommandSimulationMode } from './isolated-targets/command-injection.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -90,6 +91,8 @@ export const labService = {
       validatorType: lab.validatorType,
       flagHash: lab.flagHash,
       userId,
+      labSessionId: session.id,
+      sessionStatus: session.status,
     });
     if (result.completed) {
       const completedSession = await labRepository.completeSession(userId, lab.id);
@@ -183,5 +186,20 @@ export const labService = {
   async simulateCorsTarget(userId: string, slug: string, input: CorsSimulationInput) {
     await requireLabTargetSession(userId, slug, 'CORS_POLICY_SIMULATOR');
     return simulateCorsPolicy(userId, input);
+  },
+  async simulateCommandInjectionTarget(userId: string, slug: string, mode: CommandSimulationMode, input: string) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'COMMAND_INJECTION_SIMULATOR') {
+      throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    }
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    if (session.status !== LabSessionStatus.ACTIVE) {
+      throw new AppError(409, 'SESSION_NOT_ACTIVE', 'This lab session is no longer active.');
+    }
+    await labRepository.touchSession(userId, lab.id);
+    const result = simulateCommandInjection(session.id, mode, input);
+    if (!result) throw new AppError(400, 'UNSUPPORTED_TRAINING_SYNTAX', 'Use only the documented synthetic training input.');
+    return result;
   },
 };
