@@ -9,6 +9,7 @@ import { resetTrainingFileReads } from '../../src/modules/labs/isolated-targets/
 import { resetSstiExerciseState } from '../../src/modules/labs/isolated-targets/ssti-preview.target.js';
 import { resetCorsExerciseState } from '../../src/modules/labs/isolated-targets/cors-policy.target.js';
 import { resetCommandInjectionExerciseState } from '../../src/modules/labs/isolated-targets/command-injection.target.js';
+import { resetBusinessLogicRaceState } from '../../src/modules/labs/isolated-targets/business-logic-race.target.js';
 
 let testUploadRoot: string | undefined;
 
@@ -19,6 +20,7 @@ beforeEach(async () => {
   resetSstiExerciseState();
   resetCorsExerciseState();
   resetCommandInjectionExerciseState();
+  resetBusinessLogicRaceState();
   await prisma.labSession.deleteMany();
   await prisma.labProgress.deleteMany();
   await prisma.lab.deleteMany();

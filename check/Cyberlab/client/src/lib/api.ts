@@ -130,6 +130,17 @@ export interface ApiCommandInjectionSimulation {
   inputTreatment: string;
   exerciseReady: boolean;
 }
+export interface ApiBusinessLogicRaceSimulation {
+  action: 'inspect' | 'prepare' | 'record' | 'secure-batch';
+  product: { name: string; price: number };
+  coupon: { code: string; maximumRedemptions: number };
+  outcomes: Array<{ attemptId: 'attempt-a' | 'attempt-b'; accepted: boolean; message: string }>;
+  preparedEligibility: boolean | null;
+  redemptionCount: number;
+  invariantPreserved: boolean;
+  completionReady: boolean;
+  note: string;
+}
 interface ApiEnvelope<T> {
   data: T;
 }
@@ -259,6 +270,8 @@ export const api = {
     authPost<ApiCorsSimulation>(`/api/labs/${encodeURIComponent(slug)}/target/cors/simulate`, { ...input }),
   simulateCommandInjection: (slug: string, input: { mode: 'vulnerable' | 'secure'; input: string }) =>
     authPost<ApiCommandInjectionSimulation>(`/api/labs/${encodeURIComponent(slug)}/target/command-injection/simulate`, input),
+  simulateBusinessLogicRace: (slug: string, input: { action: 'inspect' | 'prepare' | 'record' | 'secure-batch'; attemptId?: 'attempt-a' | 'attempt-b' }) =>
+    authPost<ApiBusinessLogicRaceSimulation>(`/api/labs/${encodeURIComponent(slug)}/target/business-logic/simulate`, input),
   uploadProfileImage: (slug: string, file: File) =>
     uploadFile<ApiProfileUploadResult>(`/api/labs/${encodeURIComponent(slug)}/target/upload`, file),
   csrfSettings: (slug: string) => request<ApiCsrfSettings>(`/api/labs/${encodeURIComponent(slug)}/target/settings`),

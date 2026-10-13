@@ -37,6 +37,7 @@ const { api } = vi.hoisted(() => ({
     renderSstiPreview: vi.fn(),
     simulateCorsPolicy: vi.fn(),
     simulateCommandInjection: vi.fn(),
+    simulateBusinessLogicRace: vi.fn(),
     uploadProfileImage: vi.fn(),
     csrfSettings: vi.fn(),
     simulateCsrfNotificationChange: vi.fn(),
@@ -109,6 +110,7 @@ beforeEach(() => {
     },
   });
   api.simulateCommandInjection.mockResolvedValue({ mode: 'vulnerable', filterApplied: true, operations: [{ operation: 'status', output: 'Synthetic status.' }, { operation: 'audit', output: 'Synthetic audit.' }], inputTreatment: 'Training token interpreted.', exerciseReady: false });
+  api.simulateBusinessLogicRace.mockResolvedValue({ action: 'inspect', product: { name: 'Training Desk Lamp', price: 40 }, coupon: { code: 'SAVE-ONCE', maximumRedemptions: 1 }, outcomes: [], preparedEligibility: null, redemptionCount: 0, invariantPreserved: true, completionReady: false, note: 'Deterministic synthetic workflow.' });
   api.searchProducts.mockResolvedValue({
     queryPreview: "SELECT name FROM products WHERE name LIKE '%' OR '1'='1%'",
     results: [
@@ -459,5 +461,50 @@ describe('lab pages', () => {
     expect(screen.getByText('Loading lab…')).toBeInTheDocument();
     resolveLab?.({ lab: commandLab });
     expect(await screen.findByRole('heading', { name: 'Command Injection' })).toBeInTheDocument();
+  });
+
+  it('shows the coupon lab loading state while metadata is pending', async () => {
+    const couponLab = { ...lab, slug: 'business-logic-race', title: 'Business Logic Race Condition', points: 150, challengeType: 'BUSINESS_LOGIC_RACE_SIMULATOR' };
+    let resolveLab: ((value: { lab: typeof couponLab }) => void) | undefined;
+    api.lab.mockImplementationOnce(() => new Promise((resolve) => { resolveLab = resolve; }));
+    render(<MemoryRouter initialEntries={['/labs/business-logic-race']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(screen.getByText('Loading lab…')).toBeInTheDocument();
+    resolveLab?.({ lab: couponLab });
+    expect(await screen.findByRole('heading', { name: 'Business Logic Race Condition' })).toBeInTheDocument();
+  });
+
+  it('demonstrates both coupon workflows, displays errors, and completes only after verification', async () => {
+    const couponLab = { ...lab, slug: 'business-logic-race', title: 'Business Logic Race Condition', points: 150, challengeType: 'BUSINESS_LOGIC_RACE_SIMULATOR' };
+    api.lab.mockResolvedValue({ lab: couponLab });
+    api.simulateBusinessLogicRace.mockRejectedValueOnce(new Error('Simulation unavailable.'));
+    render(<MemoryRouter initialEntries={['/labs/business-logic-race']}><Routes><Route path="/labs/:slug" element={<LabDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Business Logic Race Condition' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Lab' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Inspect store' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to run the synthetic coupon simulation.');
+
+    const base = { product: { name: 'Training Desk Lamp', price: 40 }, coupon: { code: 'SAVE-ONCE', maximumRedemptions: 1 }, outcomes: [], preparedEligibility: true, invariantPreserved: true, completionReady: false, note: 'Deterministic.' };
+    api.simulateBusinessLogicRace
+      .mockResolvedValueOnce({ ...base, action: 'prepare', outcomes: [{ attemptId: 'attempt-a', accepted: true, message: 'eligible at 0' }] })
+      .mockResolvedValueOnce({ ...base, action: 'prepare', outcomes: [{ attemptId: 'attempt-b', accepted: true, message: 'eligible at 0' }] })
+      .mockResolvedValueOnce({ ...base, action: 'record', redemptionCount: 1, outcomes: [{ attemptId: 'attempt-a', accepted: true, message: 'recorded' }] })
+      .mockResolvedValueOnce({ ...base, action: 'record', redemptionCount: 2, invariantPreserved: false, outcomes: [{ attemptId: 'attempt-b', accepted: true, message: 'stale record' }] })
+      .mockResolvedValueOnce({ ...base, action: 'secure-batch', preparedEligibility: null, redemptionCount: 1, outcomes: [{ attemptId: 'attempt-a', accepted: true, message: 'accepted' }, { attemptId: 'attempt-b', accepted: false, message: 'rejected' }], completionReady: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare attempt A' }));
+    await waitFor(() => expect(api.simulateBusinessLogicRace).toHaveBeenLastCalledWith('business-logic-race', { action: 'prepare', attemptId: 'attempt-a' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare attempt B' }));
+    await waitFor(() => expect(api.simulateBusinessLogicRace).toHaveBeenLastCalledWith('business-logic-race', { action: 'prepare', attemptId: 'attempt-b' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Record attempt A' }));
+    await waitFor(() => expect(api.simulateBusinessLogicRace).toHaveBeenLastCalledWith('business-logic-race', { action: 'record', attemptId: 'attempt-a' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Record attempt B' }));
+    await waitFor(() => expect(api.simulateBusinessLogicRace).toHaveBeenLastCalledWith('business-logic-race', { action: 'record', attemptId: 'attempt-b' }));
+    expect(await screen.findByText('SAVE-ONCE: 2 / 1 redemptions; invariant violated.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Run secure two-attempt comparison' }));
+    await waitFor(() => expect(api.simulateBusinessLogicRace).toHaveBeenLastCalledWith('business-logic-race', { action: 'secure-batch' }));
+    expect(await screen.findByText(/Both workflows are recorded/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Exercise verification'), { target: { value: 'verify' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Attempt' }));
+    await waitFor(() => expect(api.submitLab).toHaveBeenCalledWith('business-logic-race', { confirmation: true }));
+    expect(await screen.findByText('Completed — 150 points')).toBeInTheDocument();
   });
 });

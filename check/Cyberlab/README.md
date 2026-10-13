@@ -80,6 +80,7 @@ migrations remain at the repository root and are shared by the server and seed c
 | Phase 16 — File Upload Storage Quotas and Lifecycle Controls | ✅ Completed |
 | Phase 17 — Isolated CORS Policy Lab | ✅ Completed |
 | Phase 19 — Isolated Command Injection Lab | ✅ Completed |
+| Phase 20 — Isolated Business Logic Race Condition Lab | ✅ Completed |
 
 ## Phase 3 — Lab Management Foundation
 
@@ -160,6 +161,7 @@ Secure CyberLab Platform
 │   │   ├── Training Template SSTI target (allowlisted expressions and fixed data)
 │   │   ├── CORS Policy target (local synthetic policy evaluation)
 │   │   ├── Synthetic Diagnostics command-injection target (fixed in-memory parser)
+│   │   ├── Synthetic Store coupon race target (per-session in-memory state)
 │   │   └── Other Labs
 │   └── Progress
 ```
@@ -402,6 +404,29 @@ Server tests cover authentication, CSRF and active-session gates, bounded syntax
 handling, learner isolation, completion conditions, metadata privacy, and the absence of process,
 filesystem, and fetch calls by the simulator. The frontend test covers target loading, validation
 feedback, both modes, and server-validated completion.
+
+## Phase 20 — Isolated Business Logic Race Condition Lab
+
+**Business Logic Race Condition** uses a synthetic store with one fixed training product and a
+`SAVE-ONCE` coupon limited to one redemption. In vulnerable mode, learners explicitly prepare two
+valid attempts before recording either. Both preparation steps observe zero redemptions; recording
+both saved eligibility results then violates the one-use invariant. Replaying a recorded attempt or
+reusing an attempt ID is rejected, separating the race from an unbounded duplicate-request bug.
+
+The secure comparison applies two synthetic attempts through a deterministic atomic state transition:
+the first reserves the single use, and the second is rejected. This is a controlled interleaving in
+an in-memory simulator, not actual database concurrency and not evidence of production transaction
+isolation. A production workflow needs a transaction, conditional update, unique reservation, or
+equivalent mechanism that enforces the invariant atomically. Input validation remains useful for
+request shape but cannot repair a gap between a valid eligibility check and a later state update.
+
+All product, coupon, and redemption state is fixed and isolated by active lab-session ID. The target
+does not use payments, customer records, platform account data, or Prisma. Authenticated requests
+retain the platform CSRF requirement, and server-side completion requires the learner's session to
+demonstrate both the stale-check violation and secure comparison. Tests cover deterministic state
+transitions, replay and invalid-transition handling, concurrency modeling, learner isolation,
+completion, and unchanged platform account/session records; the client test covers loading, errors,
+both workflows, and verification.
 
 ## Setup
 

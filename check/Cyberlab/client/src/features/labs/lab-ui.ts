@@ -14,6 +14,7 @@ const interactiveChallengeTypes = new Set([
   'SSTI_ALLOWLISTED',
   'CORS_POLICY_SIMULATOR',
   'COMMAND_INJECTION_SIMULATOR',
+  'BUSINESS_LOGIC_RACE_SIMULATOR',
 ]);
 
 function words(value: string) {

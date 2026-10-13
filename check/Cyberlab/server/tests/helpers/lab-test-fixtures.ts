@@ -311,6 +311,28 @@ export async function createCommandInjectionChallenge(isPublished = true) {
   });
 }
 
+export async function createBusinessLogicRaceChallenge(isPublished = true) {
+  return prisma.lab.create({
+    data: {
+      slug: 'business-logic-race',
+      title: 'Business Logic Race Condition',
+      description: 'Synthetic coupon redemption workflow challenge.',
+      category: 'WEB_SECURITY',
+      difficulty: 'INTERMEDIATE',
+      estimatedMinutes: 30,
+      points: 150,
+      isPublished,
+      objective: 'Understand stale eligibility checks and atomic state transitions.',
+      instructions: 'Prepare both attempts before recording either one, then compare atomic handling. This is not real database concurrency.',
+      hints: JSON.stringify(['Both attempts can be valid while the sequence is unsafe.']),
+      target: 'Synthetic Store',
+      challengeType: 'BUSINESS_LOGIC_RACE_SIMULATOR',
+      validatorType: 'BUSINESS_LOGIC_RACE',
+      flagHash: null,
+    },
+  });
+}
+
 async function csrf(agent: ReturnType<typeof request.agent>) {
   return (await agent.get('/api/auth/csrf')).body.data.csrfToken as string;
 }

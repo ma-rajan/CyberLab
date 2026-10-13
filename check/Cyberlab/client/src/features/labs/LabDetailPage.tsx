@@ -18,6 +18,7 @@ import {
   type ApiSstiPreview,
   type ApiCorsSimulation,
   type ApiCommandInjectionSimulation,
+  type ApiBusinessLogicRaceSimulation,
 } from '../../lib/api';
 import { categoryLabel, difficultyLabel, hasInteractiveTarget, progressLabel } from './lab-ui';
 
@@ -59,6 +60,7 @@ export function LabDetailPage() {
   const [commandInput, setCommandInput] = useState('');
   const [commandMode, setCommandMode] = useState<'vulnerable' | 'secure'>('vulnerable');
   const [commandSimulation, setCommandSimulation] = useState<ApiCommandInjectionSimulation | null>(null);
+  const [couponHistory, setCouponHistory] = useState<ApiBusinessLogicRaceSimulation[]>([]);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileUploadResult, setProfileUploadResult] = useState<ApiProfileUploadResult | null>(null);
   const [csrfSettings, setCsrfSettings] = useState<ApiCsrfSettings | null>(null);
@@ -117,6 +119,8 @@ export function LabDetailPage() {
         submission
           ? lab?.challengeType === 'COMMAND_INJECTION_SIMULATOR'
             ? { confirmation: submission.trim().toLowerCase() === 'verify' }
+            : lab?.challengeType === 'BUSINESS_LOGIC_RACE_SIMULATOR'
+              ? { confirmation: submission.trim().toLowerCase() === 'verify' }
             : hasInteractiveTarget(lab?.challengeType ?? '')
             ? { flag: submission }
             : { confirmation: submission }
@@ -239,6 +243,16 @@ export function LabDetailPage() {
       setCommandSimulation(await api.simulateCommandInjection(slug, { mode: commandMode, input: commandInput }));
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : 'Unable to run the synthetic diagnostics simulator.');
+    } finally { setIsSubmitting(false); }
+  }
+
+  async function runCouponSimulation(action: 'inspect' | 'prepare' | 'record' | 'secure-batch', attemptId?: 'attempt-a' | 'attempt-b') {
+    setError(null); setIsSubmitting(true);
+    try {
+      const response = await api.simulateBusinessLogicRace(slug, { action, ...(attemptId ? { attemptId } : {}) });
+      setCouponHistory((history) => [...history, response]);
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'Unable to run the synthetic coupon simulation.');
     } finally { setIsSubmitting(false); }
   }
 
@@ -509,6 +523,30 @@ export function LabDetailPage() {
             <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-semibold text-slate-200">Remediation</p><p className="mt-1 text-slate-400">Keep the template fixed and pass untrusted input as a value. Never concatenate user input into template source.</p><code className="mt-2 block break-all font-mono text-xs text-cyber">const safePreview = renderFixedTemplate(userInput);</code></div>
           </div>
         )}
+        {isStarted && !isCompleted && lab.challengeType === 'BUSINESS_LOGIC_RACE_SIMULATOR' && (
+          <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
+            <h2 className="text-lg font-semibold text-white">Synthetic Coupon Redemption</h2>
+            <p className="mt-1 text-sm text-slate-400">Fixed training product: Desk Lamp, $40. Coupon SAVE-ONCE permits one redemption. All state is synthetic and private to this lab session.</p>
+            <p className="mt-2 text-sm text-slate-400">In vulnerable mode, prepare both valid attempts before recording either. Each check snapshots the same current count. Input validation cannot prevent two valid requests from both relying on that stale result.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" disabled={isSubmitting} onClick={() => void runCouponSimulation('inspect')} className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 disabled:opacity-60">Inspect store</button>
+              <button type="button" disabled={isSubmitting} onClick={() => void runCouponSimulation('prepare', 'attempt-a')} className="rounded border border-cyber/60 px-3 py-2 text-sm text-cyber disabled:opacity-60">Prepare attempt A</button>
+              <button type="button" disabled={isSubmitting} onClick={() => void runCouponSimulation('prepare', 'attempt-b')} className="rounded border border-cyber/60 px-3 py-2 text-sm text-cyber disabled:opacity-60">Prepare attempt B</button>
+              <button type="button" disabled={isSubmitting} onClick={() => void runCouponSimulation('record', 'attempt-a')} className="rounded border border-signal/60 px-3 py-2 text-sm text-signal disabled:opacity-60">Record attempt A</button>
+              <button type="button" disabled={isSubmitting} onClick={() => void runCouponSimulation('record', 'attempt-b')} className="rounded border border-signal/60 px-3 py-2 text-sm text-signal disabled:opacity-60">Record attempt B</button>
+              <button type="button" disabled={isSubmitting} onClick={() => void runCouponSimulation('secure-batch')} className="rounded bg-cyber px-3 py-2 text-sm font-semibold text-ink disabled:opacity-60">Run secure two-attempt comparison</button>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">The secure batch is a deterministic simulation: each request checks and updates one shared state transition before the next. It does not prove behavior of concurrent database transactions. Production systems need an atomic transaction, conditional update, or equivalent invariant enforcement.</p>
+            {couponHistory.length > 0 && <ol aria-label="Coupon simulation results" className="mt-4 space-y-3">{couponHistory.map((entry, index) => <li key={`${entry.action}-${index}`} className="rounded border border-slate-800 p-3 text-sm">
+              <p className="font-medium text-slate-100">{entry.action === 'secure-batch' ? 'Secure atomic comparison' : `Vulnerable workflow: ${entry.action}`}</p>
+              <p className="mt-1 text-slate-400">{entry.coupon.code}: {entry.redemptionCount} / {entry.coupon.maximumRedemptions} redemptions; invariant {entry.invariantPreserved ? 'preserved' : 'violated'}.</p>
+              {entry.outcomes.map((outcome) => <p key={`${index}-${outcome.attemptId}`} className="mt-1 text-slate-300">{outcome.attemptId}: {outcome.accepted ? 'accepted' : 'rejected'} — {outcome.message}</p>)}
+              <p className="mt-2 text-xs text-slate-500">{entry.note}</p>
+              {entry.completionReady && <p className="mt-2 text-signal">Both workflows are recorded. Type verify below to request server validation.</p>}
+            </li>)}</ol>}
+            <div className="mt-4 rounded border border-slate-800 p-3 text-sm"><p className="font-semibold text-slate-200">Why validation is not enough</p><p className="mt-1 text-slate-400">Both attempts use an allowed account, product, and coupon. The bug is the gap between checking eligibility and recording a use. An atomic conditional update must make the check and reservation one indivisible state change.</p></div>
+          </div>
+        )}
         {isStarted && !isCompleted && lab.challengeType === 'COMMAND_INJECTION_SIMULATOR' && (
           <div className="mb-8 rounded-lg border border-slate-700 bg-ink/50 p-5">
             <h2 className="text-lg font-semibold text-white">Synthetic Diagnostics Simulator</h2>
@@ -655,6 +693,8 @@ export function LabDetailPage() {
             <label htmlFor="submission" className="block text-sm font-medium text-slate-200">
               {lab.challengeType === 'COMMAND_INJECTION_SIMULATOR'
                 ? 'Exercise verification'
+                : lab.challengeType === 'BUSINESS_LOGIC_RACE_SIMULATOR'
+                  ? 'Exercise verification'
                 : hasInteractiveTarget(lab.challengeType)
                 ? 'Flag submission'
                 : 'Submission'}
@@ -666,6 +706,8 @@ export function LabDetailPage() {
               placeholder={
                 lab.challengeType === 'COMMAND_INJECTION_SIMULATOR'
                   ? 'Type verify after both comparisons'
+                  : lab.challengeType === 'BUSINESS_LOGIC_RACE_SIMULATOR'
+                    ? 'Type verify after both workflows'
                   : hasInteractiveTarget(lab.challengeType)
                   ? 'Enter the flag you discovered'
                   : 'Enter the safe preview confirmation'

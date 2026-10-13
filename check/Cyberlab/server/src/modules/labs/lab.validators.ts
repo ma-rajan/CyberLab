@@ -82,5 +82,13 @@ export const commandInjectionSimulationSchema = z.object({
   input: z.string().max(120),
 }).strict();
 
+const couponAttemptIdSchema = z.enum(['attempt-a', 'attempt-b']);
+export const businessLogicRaceSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('inspect') }).strict(),
+  z.object({ action: z.literal('prepare'), attemptId: couponAttemptIdSchema }).strict(),
+  z.object({ action: z.literal('record'), attemptId: couponAttemptIdSchema }).strict(),
+  z.object({ action: z.literal('secure-batch') }).strict(),
+]);
+
 export const uploadHeadersSchema = z.object({ filename: z.string().min(1).max(120), mimeType: z.string().min(1).max(80) }).strict();
 export const csrfSettingsSchema = z.object({ notificationsEnabled: z.union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')]) }).strict();

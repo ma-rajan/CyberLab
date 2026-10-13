@@ -24,6 +24,27 @@ async function main() {
 
   const labs = [
     {
+      slug: 'business-logic-race',
+      title: 'Business Logic Race Condition',
+      description: 'Compare a stale coupon eligibility check with a deterministic atomic redemption model.',
+      category: 'WEB_SECURITY' as const,
+      difficulty: 'INTERMEDIATE' as const,
+      estimatedMinutes: 30,
+      points: 150,
+      isPublished: true,
+      objective: 'Show how two valid attempts can violate a one-redemption business rule when eligibility checks and updates are separated, then compare a single atomic state transition.',
+      instructions: 'Inspect the synthetic store and one-use SAVE-ONCE coupon. In vulnerable mode, prepare attempt-a and attempt-b before recording either one. Both eligibility checks read zero uses. Record both prepared attempts and observe the limit exceeded even though each request was individually valid. Repeat a record to see that one prepared attempt cannot be replayed. Then run the secure two-attempt batch: the simulator deterministically applies each request at one atomic transition, so only one is accepted. This is a controlled in-memory interleaving, not real database concurrency or proof of transaction isolation. Type verify after both comparisons.',
+      target: 'Synthetic Store — POST /api/labs/business-logic-race/target/business-logic/simulate',
+      challengeType: 'BUSINESS_LOGIC_RACE_SIMULATOR',
+      validatorType: 'BUSINESS_LOGIC_RACE',
+      flagHash: null,
+      hints: JSON.stringify([
+        'Prepare both attempts before recording either one. Compare their eligibility snapshots.',
+        'Input validation can reject malformed requests, but both of these requests are valid under the coupon rules.',
+        'A production implementation needs a transaction, conditional update, or equivalent atomic reservation that enforces the limit.',
+      ]),
+    },
+    {
       slug: 'command-injection',
       title: 'Command Injection',
       description: 'Compare a bounded command-string simulator with a fixed-operation diagnostic interface.',

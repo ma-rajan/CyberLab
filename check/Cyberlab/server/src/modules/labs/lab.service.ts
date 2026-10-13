@@ -21,6 +21,7 @@ import { readTrainingFile } from './isolated-targets/path-traversal.target.js';
 import { renderSstiPreview } from './isolated-targets/ssti-preview.target.js';
 import { simulateCorsPolicy, type CorsSimulationInput } from './isolated-targets/cors-policy.target.js';
 import { simulateCommandInjection, type CommandSimulationMode } from './isolated-targets/command-injection.target.js';
+import { simulateCouponWorkflow, type CouponSimulationInput } from './isolated-targets/business-logic-race.target.js';
 
 async function requirePublishedLab(slug: string) {
   const lab = await labRepository.findPublishedLabRecordBySlug(slug);
@@ -200,6 +201,21 @@ export const labService = {
     await labRepository.touchSession(userId, lab.id);
     const result = simulateCommandInjection(session.id, mode, input);
     if (!result) throw new AppError(400, 'UNSUPPORTED_TRAINING_SYNTAX', 'Use only the documented synthetic training input.');
+    return result;
+  },
+  async simulateBusinessLogicRaceTarget(userId: string, slug: string, input: CouponSimulationInput) {
+    const lab = await requirePublishedLab(slug);
+    if (lab.challengeType !== 'BUSINESS_LOGIC_RACE_SIMULATOR') {
+      throw new AppError(404, 'TARGET_NOT_FOUND', 'Target not found.');
+    }
+    const session = await labRepository.findSession(userId, lab.id);
+    if (!session) throw new AppError(404, 'SESSION_NOT_FOUND', 'Start this lab before accessing its target.');
+    if (session.status !== LabSessionStatus.ACTIVE) {
+      throw new AppError(409, 'SESSION_NOT_ACTIVE', 'This lab session is no longer active.');
+    }
+    await labRepository.touchSession(userId, lab.id);
+    const result = simulateCouponWorkflow(session.id, input);
+    if (!result) throw new AppError(400, 'INVALID_TRAINING_TRANSITION', 'That synthetic coupon workflow transition is not valid.');
     return result;
   },
 };

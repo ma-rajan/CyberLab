@@ -5,6 +5,7 @@ import { hasReadRestrictedTrainingFile } from './isolated-targets/path-traversal
 import { hasCompletedSstiExercise } from './isolated-targets/ssti-preview.target.js';
 import { hasCompletedCorsExercise } from './isolated-targets/cors-policy.target.js';
 import { hasCompletedCommandInjectionExercise } from './isolated-targets/command-injection.target.js';
+import { hasCompletedBusinessLogicRace } from './isolated-targets/business-logic-race.target.js';
 
 export interface LabValidationResult {
   success: boolean;
@@ -136,6 +137,21 @@ const commandInjectionDefinition: LabDefinition = {
     };
   },
 };
+const businessLogicRaceDefinition: LabDefinition = {
+  challengeType: 'BUSINESS_LOGIC_RACE_SIMULATOR',
+  validate: (submission, context) => {
+    const accepted = context.validatorType === 'BUSINESS_LOGIC_RACE' &&
+      context.sessionStatus === 'ACTIVE' && submission.confirmation === true &&
+      Boolean(context.labSessionId) && hasCompletedBusinessLogicRace(context.labSessionId!);
+    return {
+      success: accepted,
+      completed: accepted,
+      message: accepted
+        ? 'Verified: the stale-check race exceeded the coupon limit, and the atomic comparison preserved it.'
+        : 'Demonstrate the stale-check violation and the atomic comparison before verifying this exercise.',
+    };
+  },
+};
 for (const definition of [
   createFlagDefinition('SQL_INJECTION_PRODUCT_SEARCH', 'Correct flag. Product Search is complete.'),
   createFlagDefinition('XSS_FEEDBACK_SEARCH', 'Correct completion value. Feedback Search is complete.'),
@@ -150,6 +166,7 @@ for (const definition of [
   sstiDefinition,
   corsDefinition,
   commandInjectionDefinition,
+  businessLogicRaceDefinition,
 ]) definitions.set(definition.challengeType, definition);
 
 export function registerLabDefinition(definition: LabDefinition) {
